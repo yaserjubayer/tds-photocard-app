@@ -153,6 +153,25 @@
                     <p class="text-xs font-medium mt-1" id="verification-reasoning">Reasoning text goes here.</p>
                 </div>
 
+                <!-- One-Click Editorial Presets (Top of Form) -->
+                <div class="flex flex-col gap-1.5 bg-white p-3 rounded-2xl border border-m3-surfaceVariant shadow-sm">
+                    <div class="flex items-center justify-between px-1">
+                        <label class="text-xs font-bold uppercase tracking-wider text-m3-secondary">One-Click Editorial Presets</label>
+                        <span id="active-preset-badge" class="text-[10px] font-bold uppercase tracking-wider text-m3-primary bg-m3-primaryContainer px-2 py-0.5 rounded-full">Standard</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-1.5 bg-m3-surfaceVariant/60 p-1 rounded-xl" id="preset-selectors">
+                        <button type="button" data-preset="standard" class="preset-btn py-2.5 px-2 rounded-lg text-xs font-bold transition-all bg-m3-primary text-m3-onPrimary shadow-elevation-1">
+                            Standard
+                        </button>
+                        <button type="button" data-preset="breaking" class="preset-btn py-2.5 px-2 rounded-lg text-xs font-bold transition-all text-m3-onSurface hover:bg-white/70">
+                            Breaking News
+                        </button>
+                        <button type="button" data-preset="quote" class="preset-btn py-2.5 px-2 rounded-lg text-xs font-bold transition-all text-m3-onSurface hover:bg-white/70">
+                            Quote Card
+                        </button>
+                    </div>
+                </div>
+
                 <!-- 1. Prominent Background Image Upload (First Input) -->
                 <div class="flex flex-col gap-2 bg-m3-primaryContainer/35 p-4 rounded-2xl border-2 border-m3-primary/30 shadow-sm">
                     <div class="flex items-center justify-between px-1">
@@ -186,6 +205,9 @@
                     <div class="relative">
                         <select id="category-input" class="w-full appearance-none bg-white border border-m3-outline rounded-xl px-4 py-3.5 text-m3-onSurface focus:outline-none focus:border-m3-primary focus:ring-1 focus:ring-m3-primary transition-all">
                             <option value="Politics">Politics</option>
+                            <option value="BREAKING">BREAKING</option>
+                            <option value="OPINION">OPINION</option>
+                            <option value="OP-ED">OP-ED</option>
                             <option value="National">National</option>
                             <option value="Campus News">Campus News</option>
                             <option value="Business">Business</option>
@@ -410,7 +432,10 @@
          */
         const AppState = {
             title: "Hasina Card and Friendship Are Contradictory, Says Home Minister to India",
-            category: "POLITICS",
+            category: "Politics",
+            preset: "standard",
+            scrimIntensity: "standard",
+            headlineWeight: "700",
             layoutTheme: "standard",
             tone: "standard",
             attribution: "",
@@ -505,12 +530,19 @@
                     this.ctx.fillRect(0, 0, width, height);
                 }
 
-                // Heavy Scrim (Crucial for TDS text pop)
+                // Heavy Scrim (Increases opacity in 'Breaking News' preset so urgent text pops aggressively)
                 const scrim = this.ctx.createLinearGradient(0, 0, 0, height);
-                scrim.addColorStop(0, "rgba(0,0,0,0.1)");
-                scrim.addColorStop(0.4, "rgba(0,0,0,0.4)");
-                scrim.addColorStop(0.7, "rgba(0,0,0,0.85)");
-                scrim.addColorStop(1, "rgba(0,0,0,0.98)");
+                if (state.scrimIntensity === "heavy" || state.preset === "breaking") {
+                    scrim.addColorStop(0, "rgba(0,0,0,0.45)");
+                    scrim.addColorStop(0.35, "rgba(0,0,0,0.72)");
+                    scrim.addColorStop(0.65, "rgba(0,0,0,0.92)");
+                    scrim.addColorStop(1, "rgba(0,0,0,0.99)");
+                } else {
+                    scrim.addColorStop(0, "rgba(0,0,0,0.1)");
+                    scrim.addColorStop(0.4, "rgba(0,0,0,0.4)");
+                    scrim.addColorStop(0.7, "rgba(0,0,0,0.85)");
+                    scrim.addColorStop(1, "rgba(0,0,0,0.98)");
+                }
                 
                 this.ctx.fillStyle = scrim;
                 this.ctx.fillRect(0, 0, width, height);
@@ -886,7 +918,8 @@
                     // 2. Headline Layer (Dry Run)
                     if (hasHeadline) {
                         const rawHl = (state.title || "YOUR HEADLINE APPEARS HERE").toUpperCase();
-                        this.ctx.font = `700 ${hlFontSize}px "Oswald"`;
+                        const hlWeight = state.headlineWeight || "700";
+                        this.ctx.font = `${hlWeight} ${hlFontSize}px "Oswald"`;
 
                         const rawHlLines = this.wrapTextFullWidth(
                             rawHl,
@@ -1368,13 +1401,27 @@
                 // 3. Headline Layer
                 if (layoutData.headline) {
                     const { lines, fontSize } = layoutData.headline;
-                    this.ctx.font = `700 ${fontSize}px "Oswald"`;
+                    const hlWeight = state.headlineWeight || "700";
+                    this.ctx.save();
+                    this.ctx.font = `${hlWeight} ${fontSize}px "Oswald"`;
                     this.ctx.fillStyle = "#FFFFFF";
                     this.ctx.textAlign = "left";
                     this.ctx.textBaseline = "top";
+                    if (state.preset === "breaking") {
+                        this.ctx.shadowColor = "rgba(0, 0, 0, 0.65)";
+                        this.ctx.shadowBlur = 12;
+                        this.ctx.shadowOffsetY = 3;
+                    }
                     lines.forEach((lineObj) => {
-                        this.ctx.fillText(lineObj.text, lineObj.x, lineObj.y);
+                        const renderedLine = (lineObj.text || "").toUpperCase();
+                        this.ctx.fillText(renderedLine, lineObj.x, lineObj.y);
+                        if (state.preset === "breaking") {
+                            this.ctx.lineWidth = Math.max(1, Math.round(fontSize * 0.018));
+                            this.ctx.strokeStyle = "#FFFFFF";
+                            this.ctx.strokeText(renderedLine, lineObj.x, lineObj.y);
+                        }
                     });
+                    this.ctx.restore();
                 }
             }
 
@@ -1511,6 +1558,8 @@
                 this.formatSelectorsContainer = document.getElementById('format-selectors');
                 this.ratioLabel = document.getElementById('ratio-label');
                 this.canvasWrapper = document.getElementById('canvas-wrapper');
+                this.presetBtns = document.querySelectorAll('.preset-btn');
+                this.activePresetBadge = document.getElementById('active-preset-badge');
                 this.toneBtns = document.querySelectorAll('.tone-btn');
                 this.quoteFields = document.getElementById('quote-fields');
                 this.analyticalFields = document.getElementById('analytical-fields');
@@ -1710,6 +1759,104 @@
                 this.quoteFields.classList.toggle('flex', this.state.tone === 'quote');
                 this.analyticalFields.classList.toggle('hidden', this.state.tone !== 'analytical');
                 this.analyticalFields.classList.toggle('flex', this.state.tone === 'analytical');
+            }
+
+            renderPresetButtons() {
+                if (!this.presetBtns) return;
+                this.presetBtns.forEach(btn => {
+                    const type = btn.dataset.preset;
+                    const isSelected = this.state.preset === type;
+                    if (isSelected) {
+                        const activeBg = type === 'breaking' ? 'bg-red-600 text-white' : 'bg-m3-primary text-m3-onPrimary';
+                        btn.className = `preset-btn py-2.5 px-2 rounded-lg text-xs font-bold transition-all ${activeBg} shadow-elevation-1`;
+                    } else {
+                        btn.className = 'preset-btn py-2.5 px-2 rounded-lg text-xs font-bold transition-all text-m3-onSurface hover:bg-white/70';
+                    }
+                });
+
+                if (this.activePresetBadge) {
+                    const labels = {
+                        standard: 'Standard',
+                        breaking: 'Breaking News',
+                        quote: 'Quote Card'
+                    };
+                    this.activePresetBadge.innerText = labels[this.state.preset] || 'Standard';
+                    this.activePresetBadge.className = this.state.preset === 'breaking'
+                        ? 'text-[10px] font-bold uppercase tracking-wider text-white bg-red-600 px-2 py-0.5 rounded-full'
+                        : 'text-[10px] font-bold uppercase tracking-wider text-m3-primary bg-m3-primaryContainer px-2 py-0.5 rounded-full';
+                }
+            }
+
+            applyPreset(type) {
+                const normalizedType = (type || 'standard').toLowerCase();
+                this.state.preset = normalizedType;
+
+                if (normalizedType === 'breaking') {
+                    // 1. Update internal state for Breaking News
+                    this.state.category = 'BREAKING';
+                    this.state.brand.primaryColor = '#FF0000';
+                    this.state.scrimIntensity = 'heavy';
+                    this.state.headlineWeight = '900';
+                    this.state.layoutTheme = 'standard';
+                    this.state.tone = 'breaking';
+
+                    // 2. Physically update visible HTML form inputs
+                    if (this.categoryInput) this.categoryInput.value = 'BREAKING';
+                    if (this.primaryColorInput) this.primaryColorInput.value = '#FF0000';
+                    if (this.layoutThemeInput) this.layoutThemeInput.value = 'standard';
+                    if (this.titleInput && this.titleInput.value) {
+                        this.titleInput.value = this.titleInput.value.toUpperCase();
+                    }
+                } else if (normalizedType === 'quote') {
+                    // 1. Update internal state for Quote Card
+                    this.state.category = 'OPINION';
+                    this.state.brand.primaryColor = '#a31f24';
+                    this.state.scrimIntensity = 'standard';
+                    this.state.headlineWeight = '700';
+                    this.state.includeQuote = true;
+                    this.state.layoutTheme = 'quote';
+                    this.state.tone = 'quote';
+
+                    // 2. Physically update visible HTML form inputs & expand quote drawer
+                    if (this.categoryInput) this.categoryInput.value = 'OPINION';
+                    if (this.primaryColorInput) this.primaryColorInput.value = '#a31f24';
+                    if (this.layoutThemeInput) this.layoutThemeInput.value = 'quote';
+                    if (this.includeQuoteToggle) this.includeQuoteToggle.checked = true;
+                    if (this.quoteDrawer) {
+                        this.quoteDrawer.classList.remove('hidden');
+                        this.quoteDrawer.classList.add('flex');
+                    }
+                    if (this.quoteTextInput && !this.quoteTextInput.value.trim()) {
+                        this.quoteTextInput.value = this.state.quoteText;
+                    }
+                    if (this.quoteAttributionInput && !this.quoteAttributionInput.value.trim()) {
+                        this.quoteAttributionInput.value = this.state.quoteAttribution;
+                    }
+                } else {
+                    // 1. Reset internal state to Standard TDS Layout
+                    this.state.preset = 'standard';
+                    this.state.category = 'Politics';
+                    this.state.brand.primaryColor = '#a31f24';
+                    this.state.scrimIntensity = 'standard';
+                    this.state.headlineWeight = '700';
+                    this.state.includeQuote = false;
+                    this.state.layoutTheme = 'standard';
+                    this.state.tone = 'standard';
+
+                    // 2. Physically update visible HTML form inputs
+                    if (this.categoryInput) this.categoryInput.value = 'Politics';
+                    if (this.primaryColorInput) this.primaryColorInput.value = '#a31f24';
+                    if (this.layoutThemeInput) this.layoutThemeInput.value = 'standard';
+                    if (this.includeQuoteToggle) this.includeQuoteToggle.checked = false;
+                    if (this.quoteDrawer) {
+                        this.quoteDrawer.classList.add('hidden');
+                        this.quoteDrawer.classList.remove('flex');
+                    }
+                }
+
+                this.renderPresetButtons();
+                this.renderToneButtons();
+                this.updateAndRender();
             }
 
             handleImageFile(file) {
@@ -2044,7 +2191,17 @@
                 if (!hasSavedState) this.syncBrandUI();
                 
                 this.renderFormatButtons();
+                this.renderPresetButtons();
                 this.renderToneButtons();
+
+                // Bind One-Click Editorial Preset Buttons
+                if (this.presetBtns) {
+                    this.presetBtns.forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            this.applyPreset(btn.dataset.preset);
+                        });
+                    });
+                }
 
                 // Restore saved Gemini API key if present in localStorage
                 if (this.geminiApiKeyInput) {
@@ -2080,6 +2237,7 @@
                 window.verifyNewsCredibility = (headline) => this.verifyNewsCredibility(headline);
                 window.downloadPhotocard = () => this.downloadPhotocard();
                 window.sharePhotocard = () => this.sharePhotocard();
+                window.applyPreset = (type) => this.applyPreset(type);
 
                 // Bind Main Form Events (Retains manual override on Main Headline)
                 this.titleInput.addEventListener('input', () => this.updateAndRender());
