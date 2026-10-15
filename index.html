@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <!-- PWA Meta Tags & Manifest for Native App Experience -->
-    <meta name="theme-color" content="#fdfbff" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#1a1b1e" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#a31f24">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="manifest" href='data:application/manifest+json,{"name":"Newsroom Photocard Studio","short_name":"Photocard","start_url":".","display":"standalone","background_color":"#fdfbff","theme_color":"#005ac1","orientation":"portrait-primary"}'>
+    <link rel="manifest" href="manifest.json">
 
     <title>Newsroom Photocard Studio</title>
     
@@ -1916,6 +1916,21 @@
 
             ui.init();
         });
+    </script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                if (window.location.protocol === 'https:' || window.location.protocol === 'http:') {
+                    navigator.serviceWorker.register('sw.js')
+                        .then((registration) => {
+                            console.log('ServiceWorker registered with scope:', registration.scope);
+                        })
+                        .catch((error) => {
+                            console.log('ServiceWorker registration skipped:', error.message);
+                        });
+                }
+            });
+        }
     </script>
 </body>
 </html>
