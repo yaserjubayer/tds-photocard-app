@@ -66,10 +66,10 @@
             width: 100%;
             max-width: 412px; /* Standard large Android width */
             height: 100vh;
+            height: 100dvh;
             background-color: #fdfbff;
             position: relative;
-            overflow-y: auto;
-            overflow-x: hidden;
+            overflow: hidden;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
         }
 
@@ -108,7 +108,7 @@
     <div class="mobile-frame flex flex-col">
         
         <!-- Top App Bar -->
-        <header class="sticky top-0 z-10 bg-m3-surface/90 backdrop-blur-md px-4 py-4 flex items-center justify-between border-b border-m3-surfaceVariant">
+        <header class="shrink-0 sticky top-0 z-10 bg-m3-surface/90 backdrop-blur-md px-4 py-4 flex items-center justify-between border-b border-m3-surfaceVariant">
             <h1 class="text-lg font-semibold tracking-tight text-m3-onSurface">Photocard Studio</h1>
             <div class="flex gap-2">
                 <button id="brand-btn" class="text-m3-secondary text-sm font-semibold px-3 py-1.5 rounded-full hover:bg-m3-surfaceVariant transition-colors flex items-center gap-1">
@@ -122,10 +122,10 @@
         </header>
 
         <!-- Main Content Area -->
-        <main class="flex-1 p-4 pb-24 flex flex-col gap-6">
+        <main class="flex-1 overflow-y-auto h-[calc(100vh-100px)] p-4 pb-40 flex flex-col gap-6">
             
             <!-- Canvas Preview Section -->
-            <section class="flex flex-col gap-2">
+            <section class="flex flex-col gap-2 shrink-0">
                 <div class="flex justify-between items-end px-1">
                     <h2 class="text-sm font-semibold text-m3-secondary uppercase tracking-wider">Preview</h2>
                     <div class="flex items-center gap-2">
@@ -142,7 +142,7 @@
             </section>
 
             <!-- Input Controls Section -->
-            <section class="flex flex-col gap-4">
+            <section class="flex flex-col gap-4 pb-36">
                 
                 <!-- Verification Alert Banner (Hidden by default) -->
                 <div id="verification-banner" class="hidden flex-col gap-1 border-l-4 rounded-r-xl p-4 shadow-sm transition-all bg-white mb-2">
@@ -214,7 +214,11 @@
 
                 <!-- AI Raw Article Text to Headline Generator -->
                 <div class="flex flex-col gap-2">
-                    <label for="article-text-input" class="text-sm font-semibold text-m3-secondary px-1">Paste Full Article Text Here</label>
+                    <div class="flex items-center justify-between px-1">
+                        <label for="article-text-input" class="text-sm font-semibold text-m3-secondary">Paste Full Article Text Here</label>
+                        <span class="text-[11px] text-m3-outline">Auto-truncates to 6,000 chars</span>
+                    </div>
+                    <input type="password" id="gemini-api-key-input" placeholder="Gemini API Key (Required for static GitHub Pages)" class="w-full bg-white border border-m3-outline rounded-xl px-4 py-2.5 text-xs text-m3-onSurface focus:outline-none focus:border-m3-primary focus:ring-1 focus:ring-m3-primary transition-all">
                     <textarea id="article-text-input" rows="4" placeholder="Paste the full news report or press release here to generate a punchy TDS headline..." class="w-full bg-white border border-m3-outline rounded-xl px-4 py-3 text-sm text-m3-onSurface focus:outline-none focus:border-m3-primary focus:ring-1 focus:ring-m3-primary transition-all resize-y"></textarea>
                     <button type="button" id="generate-headline-btn" class="w-full bg-m3-primary text-m3-onPrimary text-xs font-bold px-4 py-3 rounded-xl shadow-sm hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
@@ -1503,6 +1507,7 @@
                 // Form Inputs
                 this.titleInput = document.getElementById('title-input');
                 this.articleTextInput = document.getElementById('article-text-input');
+                this.geminiApiKeyInput = document.getElementById('gemini-api-key-input');
                 this.generateHeadlineBtn = document.getElementById('generate-headline-btn');
                 this.textErrorMsg = document.getElementById('text-error-msg');
                 this.categoryInput = document.getElementById('category-input');
@@ -1704,17 +1709,18 @@
             }
 
             /**
-             * Generates a punchy TDS headline from raw article text via Netlify Functions
+             * Generates a punchy TDS headline from raw article text using Gemini 2.5 Flash
+             * Truncates input text to 6,000 characters to prevent payload/token limit failures.
              */
             async generateHeadlineFromText() {
-                const text = this.articleTextInput ? this.articleTextInput.value.trim() : '';
+                const rawText = this.articleTextInput ? this.articleTextInput.value.trim() : '';
 
                 if (this.textErrorMsg) {
                     this.textErrorMsg.classList.add('hidden');
                     this.textErrorMsg.innerText = '';
                 }
 
-                if (!text) {
+                if (!rawText) {
                     const msg = 'Please paste the article text first.';
                     if (this.textErrorMsg) {
                         this.textErrorMsg.innerText = msg;
@@ -1724,33 +1730,100 @@
                     return;
                 }
 
+                // Strictly truncate raw article text to 6,000 characters to stay within payload/token limits
+                const safeText = rawText.substring(0, 6000);
+
+                // Resolve API key from input, localStorage, or global window config
+                const inputKey = this.geminiApiKeyInput ? this.geminiApiKeyInput.value.trim() : '';
+                const storedKey = localStorage.getItem('tds_gemini_api_key') || '';
+                const apiKey = inputKey || storedKey || window.GEMINI_API_KEY || '';
+
+                if (inputKey) {
+                    try {
+                        localStorage.setItem('tds_gemini_api_key', inputKey);
+                    } catch (e) {
+                        console.warn('Could not persist API key to localStorage');
+                    }
+                }
+
                 const originalBtnHtml = this.generateHeadlineBtn.innerHTML;
                 this.generateHeadlineBtn.innerText = 'Reading...';
                 this.generateHeadlineBtn.disabled = true;
 
                 try {
-                    const response = await fetch('/.netlify/functions/generate-headline', {
+                    if (!apiKey) {
+                        const keyMissingError = new Error('Missing Gemini API Key. Please enter a valid Gemini API key above.');
+                        keyMissingError.isAuthError = true;
+                        throw keyMissingError;
+                    }
+
+                    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+                    const promptInstruction = [
+                        'You are the Chief Sub-Editor at The Dhaka Standard (TDS).',
+                        'Read the following news article excerpt and write ONE punchy, high-impact journalistic headline (maximum 14 words).',
+                        'Preserve the original language of the article (if the article is in Bengali, output a Bengali headline; if in English, output an English headline).',
+                        'Return ONLY the headline text without surrounding quotes or markdown.',
+                        '',
+                        'Article Text:',
+                        safeText
+                    ].join('\n');
+
+                    const payload = {
+                        contents: [
+                            {
+                                parts: [
+                                    { text: promptInstruction }
+                                ]
+                            }
+                        ],
+                        generationConfig: {
+                            temperature: 0.4,
+                            maxOutputTokens: 120
+                        }
+                    };
+
+                    const response = await fetch(endpoint, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({ text })
+                        body: JSON.stringify(payload)
                     });
 
                     if (!response.ok) {
-                        throw new Error(`Request failed with status ${response.status}`);
+                        let apiErrorDetail = '';
+                        try {
+                            const errJson = await response.json();
+                            apiErrorDetail = (errJson && errJson.error && errJson.error.message) ? errJson.error.message : '';
+                        } catch (_) {
+                            // Ignore JSON parse error on error response
+                        }
+
+                        if (response.status === 400 || response.status === 401 || response.status === 403 || /api key|key not valid|permission|unauthenticated/i.test(apiErrorDetail)) {
+                            const authErr = new Error(apiErrorDetail || `Invalid or unauthorized Gemini API key (HTTP ${response.status}).`);
+                            authErr.isAuthError = true;
+                            throw authErr;
+                        }
+
+                        throw new Error(apiErrorDetail || `Gemini API request failed with status ${response.status}`);
                     }
 
                     const data = await response.json();
+                    const candidateText = data?.candidates?.[0]?.content?.parts
+                        ?.map(part => part.text || '')
+                        .join(' ')
+                        .trim();
+
                     const generatedText = (
+                        candidateText ||
                         data.headline ||
                         data.title ||
                         data.text ||
-                        (typeof data === 'string' ? data : '')
-                    ).trim();
+                        ''
+                    ).replace(/^["'“”]+|["'“”]+$/g, '').trim();
 
                     if (!generatedText) {
-                        throw new Error('No headline returned from generator.');
+                        throw new Error('No headline text was returned by the Gemini API.');
                     }
 
                     // Inject generated headline into Main Headline textarea & trigger Canvas render
@@ -1758,13 +1831,22 @@
                     this.updateAndRender();
                     this.showToast('TDS Headline generated!');
                 } catch (error) {
-                    console.error('Headline generation failed:', error);
-                    const errorText = 'Failed to generate headline from text. Please try again or type manually.';
+                    console.error('Headline generation failed:', error.message || error);
+
+                    const isKeyIssue = Boolean(
+                        error.isAuthError ||
+                        /api key|missing gemini api key|unauthorized|401|403/i.test(error.message || '')
+                    );
+
+                    const userMessage = isKeyIssue
+                        ? `API Key Error: ${error.message}`
+                        : `Network / API Error: ${error.message || 'Failed to reach Gemini API. Please check your connection.'}`;
+
                     if (this.textErrorMsg) {
-                        this.textErrorMsg.innerText = errorText;
+                        this.textErrorMsg.innerText = userMessage;
                         this.textErrorMsg.classList.remove('hidden');
                     }
-                    this.showToast('Failed to generate headline.', true);
+                    this.showToast(isKeyIssue ? 'Missing or invalid Gemini API key.' : 'Network error while generating headline.', true);
                 } finally {
                     this.generateHeadlineBtn.innerHTML = originalBtnHtml;
                     this.generateHeadlineBtn.disabled = false;
@@ -1895,6 +1977,22 @@
                 
                 this.renderFormatButtons();
                 this.renderToneButtons();
+
+                // Restore saved Gemini API key if present in localStorage
+                if (this.geminiApiKeyInput) {
+                    const savedKey = localStorage.getItem('tds_gemini_api_key');
+                    if (savedKey) {
+                        this.geminiApiKeyInput.value = savedKey;
+                    }
+                    this.geminiApiKeyInput.addEventListener('input', (e) => {
+                        try {
+                            localStorage.setItem('tds_gemini_api_key', e.target.value.trim());
+                        } catch (_) {}
+                        if (this.textErrorMsg) {
+                            this.textErrorMsg.classList.add('hidden');
+                        }
+                    });
+                }
 
                 // Bind AI Raw Article Text-to-Headline Generator
                 if (this.generateHeadlineBtn) {
