@@ -1,0 +1,1921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- PWA Meta Tags & Manifest for Native App Experience -->
+    <meta name="theme-color" content="#fdfbff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#1a1b1e" media="(prefers-color-scheme: dark)">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href='data:application/manifest+json,{"name":"Newsroom Photocard Studio","short_name":"Photocard","start_url":".","display":"standalone","background_color":"#fdfbff","theme_color":"#005ac1","orientation":"portrait-primary"}'>
+
+    <title>Newsroom Photocard Studio</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts (Updated for The Dhaka Standard: Oswald, Playfair, Inter) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,600;1,700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind Configuration for Material 3 inspired colors and fonts -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        m3: {
+                            surface: '#fdfbff',
+                            onSurface: '#1a1b1e',
+                            surfaceVariant: '#e1e2ec',
+                            primary: '#005ac1',
+                            onPrimary: '#ffffff',
+                            primaryContainer: '#d8e2ff',
+                            secondary: '#535e78',
+                            tertiary: '#76517b',
+                            outline: '#74777f',
+                        }
+                    },
+                    boxShadow: {
+                        'elevation-1': '0px 1px 2px 0px rgba(0,0,0,0.3), 0px 1px 3px 1px rgba(0,0,0,0.15)',
+                        'elevation-3': '0px 1px 3px 0px rgba(0,0,0,0.3), 0px 4px 8px 3px rgba(0,0,0,0.15)',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* Custom scrollbar and minor resets */
+        body {
+            -webkit-tap-highlight-color: transparent;
+            background-color: #e5e7eb; /* Gray background for desktop preview */
+            display: flex;
+            justify-content: center;
+        }
+        
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Mobile Device Frame Simulation (Only visible on larger screens) */
+        .mobile-frame {
+            width: 100%;
+            max-width: 412px; /* Standard large Android width */
+            height: 100vh;
+            background-color: #fdfbff;
+            position: relative;
+            overflow-y: auto;
+            overflow-x: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+
+        @media (min-width: 640px) {
+            .mobile-frame {
+                height: 90vh;
+                margin-top: 5vh;
+                border-radius: 32px;
+                border: 8px solid #1a1b1e;
+            }
+        }
+
+        /* Responsive Canvas Container */
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            background: #e1e2ec;
+            border-radius: 12px;
+            overflow: hidden;
+            transition: padding-top 0.3s ease;
+        }
+        
+        #photocard-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body class="text-m3-onSurface antialiased">
+    <div id="toast-container" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-[100] flex flex-col gap-2 transition-all pointer-events-none"></div>
+
+    <div class="mobile-frame flex flex-col">
+        
+        <!-- Top App Bar -->
+        <header class="sticky top-0 z-10 bg-m3-surface/90 backdrop-blur-md px-4 py-4 flex items-center justify-between border-b border-m3-surfaceVariant">
+            <h1 class="text-lg font-semibold tracking-tight text-m3-onSurface">Photocard Studio</h1>
+            <div class="flex gap-2">
+                <button id="brand-btn" class="text-m3-secondary text-sm font-semibold px-3 py-1.5 rounded-full hover:bg-m3-surfaceVariant transition-colors flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                    Brand
+                </button>
+                <button id="reset-btn" class="text-m3-primary text-sm font-semibold px-3 py-1.5 rounded-full hover:bg-m3-primaryContainer transition-colors">
+                    Reset
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 p-4 pb-24 flex flex-col gap-6">
+            
+            <!-- Canvas Preview Section -->
+            <section class="flex flex-col gap-2">
+                <div class="flex justify-between items-end px-1">
+                    <h2 class="text-sm font-semibold text-m3-secondary uppercase tracking-wider">Preview</h2>
+                    <div class="flex items-center gap-2">
+                        <span id="ratio-label" class="text-xs text-m3-outline">4:5 Portrait</span>
+                        <button id="batch-export-btn" class="text-[10px] font-bold uppercase tracking-wider text-m3-onPrimary bg-m3-primary px-2 py-1.5 rounded shadow-sm hover:bg-blue-700 transition flex items-center gap-1 active:scale-95">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                            Export All Sizes
+                        </button>
+                    </div>
+                </div>
+                <div id="canvas-wrapper" class="canvas-container shadow-elevation-1" style="padding-top: 125%;">
+                    <canvas id="photocard-canvas"></canvas>
+                </div>
+            </section>
+
+            <!-- Input Controls Section -->
+            <section class="flex flex-col gap-4">
+                
+                <!-- Verification Alert Banner (Hidden by default) -->
+                <div id="verification-banner" class="hidden flex-col gap-1 border-l-4 rounded-r-xl p-4 shadow-sm transition-all bg-white mb-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm font-bold uppercase tracking-wider" id="verification-status">Status</span>
+                        <span class="text-xl font-black" id="verification-score">0%</span>
+                    </div>
+                    <p class="text-xs font-medium mt-1" id="verification-reasoning">Reasoning text goes here.</p>
+                </div>
+
+                <!-- 1. Prominent Background Image Upload (First Input) -->
+                <div class="flex flex-col gap-2 bg-m3-primaryContainer/35 p-4 rounded-2xl border-2 border-m3-primary/30 shadow-sm">
+                    <div class="flex items-center justify-between px-1">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-m3-primary"></span>
+                            <label for="image-upload" class="text-sm font-bold text-m3-onSurface cursor-pointer">Background Image (Context-Based)</label>
+                        </div>
+                        <button type="button" id="remove-image-btn" class="hidden text-xs bg-red-100 text-red-700 hover:bg-red-200 font-bold px-3 py-1 rounded-full transition-colors">
+                            Clear Image
+                        </button>
+                    </div>
+                    <div id="dropzone" class="bg-white border-2 border-dashed border-m3-primary/60 rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-m3-surfaceVariant/60 transition-colors">
+                        <svg class="w-9 h-9 text-m3-primary mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        <p id="bg-upload-status" class="text-sm text-m3-onSurface font-semibold">Click to upload photo or drag and drop</p>
+                        <p class="text-xs text-m3-secondary mt-1">Auto-crops to fill canvas (PNG, JPG, WEBP)</p>
+                    </div>
+                    <input type="file" id="image-upload" class="hidden" accept="image/*">
+                </div>
+
+                <!-- Aspect Ratio Selector -->
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-sm font-semibold text-m3-secondary px-1">Platform Format</label>
+                    <div class="flex gap-2 overflow-x-auto pb-1 hide-scrollbar" id="format-selectors">
+                        <!-- Populated via JS -->
+                    </div>
+                </div>
+                
+                <!-- Category Selector -->
+                <div class="flex flex-col gap-1.5">
+                    <label for="category-input" class="text-sm font-semibold text-m3-secondary px-1">Category / Desk</label>
+                    <div class="relative">
+                        <select id="category-input" class="w-full appearance-none bg-white border border-m3-outline rounded-xl px-4 py-3.5 text-m3-onSurface focus:outline-none focus:border-m3-primary focus:ring-1 focus:ring-m3-primary transition-all">
+                            <option value="Politics">Politics</option>
+                            <option value="National">National</option>
+                            <option value="Campus News">Campus News</option>
+                            <option value="Business">Business</option>
+                            <option value="World">World</option>
+                            <option value="Satire">Satire</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-m3-outline">
+                            <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Layout Theme Selector (New for TDS) -->
+                <div class="flex flex-col gap-1.5">
+                    <label for="layout-theme-input" class="text-sm font-semibold text-m3-secondary px-1">Layout Theme (TDS Template)</label>
+                    <div class="relative">
+                        <select id="layout-theme-input" class="w-full appearance-none bg-white border border-m3-outline rounded-xl px-4 py-3.5 text-m3-onSurface focus:outline-none focus:border-m3-primary focus:ring-1 focus:ring-m3-primary transition-all font-bold">
+                            <option value="standard">Standard News</option>
+                            <option value="quote">Quote Focus</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-m3-outline">
+                            <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Raw Article Text to Headline Generator -->
+                <div class="flex flex-col gap-2">
+                    <label for="article-text-input" class="text-sm font-semibold text-m3-secondary px-1">Paste Full Article Text Here</label>
+                    <textarea id="article-text-input" rows="4" placeholder="Paste the full news report or press release here to generate a punchy TDS headline..." class="w-full bg-white border border-m3-outline rounded-xl px-4 py-3 text-sm text-m3-onSurface focus:outline-none focus:border-m3-primary focus:ring-1 focus:ring-m3-primary transition-all resize-y"></textarea>
+                    <button type="button" id="generate-headline-btn" class="w-full bg-m3-primary text-m3-onPrimary text-xs font-bold px-4 py-3 rounded-xl shadow-sm hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        <span>Generate TDS Headline</span>
+                    </button>
+                    <p id="text-error-msg" class="hidden text-xs text-red-600 font-medium px-1 mt-0.5"></p>
+                </div>
+
+                <!-- Headline Input -->
+                <div class="flex flex-col gap-1.5">
+                    <label for="title-input" class="text-sm font-semibold text-m3-secondary px-1">Main Headline</label>
+                    <textarea id="title-input" rows="3" placeholder="Enter a punchy story hook..." class="w-full bg-white border border-m3-outline rounded-xl px-4 py-3.5 text-m3-onSurface focus:outline-none focus:border-m3-primary focus:ring-1 focus:ring-m3-primary transition-all resize-none"></textarea>
+                    <div class="flex justify-between items-start mt-0.5 px-1">
+                        <p class="text-xs text-m3-outline max-w-[60%]">Text is automatically wrapped and formatted for high impact.</p>
+                        <button id="verify-btn" class="text-[10px] font-bold uppercase tracking-wider text-m3-primary bg-m3-primaryContainer px-3 py-1.5 rounded-full shadow-sm hover:bg-m3-primary hover:text-white transition-colors flex items-center gap-1 shrink-0">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            Verify Credibility
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Quotes Add-on -->
+                <div class="flex flex-col gap-1.5 bg-m3-surfaceVariant/30 p-4 rounded-xl border border-m3-surfaceVariant">
+                    <label class="flex items-center gap-2 text-sm font-semibold text-m3-onSurface cursor-pointer">
+                        <input type="checkbox" id="include-quote-toggle" class="w-5 h-5 accent-m3-primary rounded cursor-pointer">
+                        Include Editorial Quote
+                    </label>
+                    <div id="quote-drawer" class="hidden flex-col gap-3 mt-2 transition-all">
+                        <textarea id="quote-text-input" rows="2" placeholder="Enter quote text..." class="w-full bg-white border border-m3-outline rounded-xl px-4 py-3 text-m3-onSurface focus:outline-none focus:border-m3-primary focus:ring-1 focus:ring-m3-primary transition-all resize-none"></textarea>
+                        <input type="text" id="quote-attribution-input" placeholder="Attribution (e.g. Jane Doe, CEO)" class="w-full bg-white border border-m3-outline rounded-xl px-4 py-3 text-m3-onSurface focus:outline-none focus:border-m3-primary focus:ring-1 focus:ring-m3-primary transition-all">
+                    </div>
+                </div>
+
+                <!-- Author Add-on -->
+                <div class="flex flex-col gap-1.5 bg-m3-surfaceVariant/30 p-4 rounded-xl border border-m3-surfaceVariant">
+                    <label class="flex items-center gap-2 text-sm font-semibold text-m3-onSurface cursor-pointer">
+                        <input type="checkbox" id="show-author-toggle" class="w-5 h-5 accent-m3-primary rounded cursor-pointer">
+                        Include Author / Byline
+                    </label>
+                    <div id="author-drawer" class="hidden flex-col gap-3 mt-2 transition-all">
+                        <div class="flex gap-3 items-center">
+                            <div id="author-dropzone" class="w-16 h-16 rounded-full border-2 border-dashed border-m3-primary/50 flex items-center justify-center cursor-pointer hover:bg-m3-surfaceVariant overflow-hidden relative shrink-0">
+                                <svg class="w-6 h-6 text-m3-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                                <img id="author-preview-img" class="hidden absolute inset-0 w-full h-full object-cover">
+                                <input type="file" id="author-upload" class="hidden" accept="image/*">
+                            </div>
+                            <div class="flex-1 flex flex-col gap-2">
+                                <input type="text" id="author-name-input" placeholder="Author Name & Title (e.g. John Doe, Reporter)" class="w-full bg-white border border-m3-outline rounded-xl px-4 py-3 text-m3-onSurface focus:outline-none focus:border-m3-primary focus:ring-1 focus:ring-m3-primary transition-all">
+                                <button id="remove-author-btn" class="hidden text-xs text-red-600 hover:text-red-700 font-semibold self-start text-left">Remove Photo</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Hardcoded TDS Brand Identity & Smart Logo Alignment -->
+                <div class="flex flex-col gap-1.5 bg-m3-surfaceVariant/30 p-4 rounded-xl border border-m3-surfaceVariant">
+                    <div class="flex items-center justify-between">
+                        <label for="logo-alignment-input" class="text-sm font-semibold text-m3-onSurface">Logo Alignment</label>
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-red-700 bg-red-100 px-2.5 py-0.5 rounded-full">The Dhaka Standard</span>
+                    </div>
+                    <p class="text-xs text-m3-secondary">Smart placement automatically detects headline, quote, and image focal areas to place the TDS logo in the quadrant with the most open space.</p>
+                    <div class="relative mt-1">
+                        <select id="logo-alignment-input" class="w-full appearance-none bg-white border border-m3-outline rounded-xl px-4 py-3.5 text-m3-onSurface focus:outline-none focus:border-m3-primary focus:ring-1 focus:ring-m3-primary transition-all font-semibold">
+                            <option value="auto" selected>Auto (Smart Placement)</option>
+                            <option value="top-left">Top-Left</option>
+                            <option value="top-right">Top-Right</option>
+                            <option value="bottom-left">Bottom-Left</option>
+                            <option value="bottom-right">Bottom-Right</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-m3-outline">
+                            <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tone Selector & Dynamic Fields -->
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-sm font-semibold text-m3-secondary px-1">Editorial Tone</label>
+                    <div class="flex gap-2 overflow-x-auto pb-1 hide-scrollbar" id="tone-selectors">
+                        <button data-tone="standard" class="tone-btn whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-colors bg-m3-primary text-m3-onPrimary shadow-elevation-1">Standard</button>
+                        <button data-tone="breaking" class="tone-btn whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-colors bg-white border border-m3-outline text-m3-onSurface hover:bg-m3-surfaceVariant">Breaking News</button>
+                        <button data-tone="quote" class="tone-btn whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-colors bg-white border border-m3-outline text-m3-onSurface hover:bg-m3-surfaceVariant">Quote Card</button>
+                        <button data-tone="analytical" class="tone-btn whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-colors bg-white border border-m3-outline text-m3-onSurface hover:bg-m3-surfaceVariant">Analytical</button>
+                    </div>
+                </div>
+
+                <div id="quote-fields" class="hidden flex-col gap-1.5 transition-all">
+                    <label for="attribution-input" class="text-sm font-semibold text-m3-secondary px-1">Attribution / Speaker</label>
+                    <input type="text" id="attribution-input" placeholder="e.g. Jane Doe, CEO" class="w-full bg-white border border-m3-outline rounded-xl px-4 py-3 text-m3-onSurface focus:outline-none focus:border-m3-primary focus:ring-1 focus:ring-m3-primary transition-all">
+                </div>
+
+                <div id="analytical-fields" class="hidden flex-col gap-1.5 transition-all">
+                    <label for="read-time-input" class="text-sm font-semibold text-m3-secondary px-1">Read Time / Tag</label>
+                    <input type="text" id="read-time-input" value="3 Min Read" class="w-full bg-white border border-m3-outline rounded-xl px-4 py-3 text-m3-onSurface focus:outline-none focus:border-m3-primary focus:ring-1 focus:ring-m3-primary transition-all">
+                </div>
+
+            </section>
+        </main>
+
+        <!-- Brand Settings Bottom Sheet -->
+        <div id="brand-sheet-overlay" class="fixed inset-0 bg-black/50 z-40 hidden opacity-0 transition-opacity duration-300"></div>
+        <div id="brand-sheet" class="fixed bottom-0 left-0 right-0 z-50 bg-m3-surface rounded-t-[32px] p-6 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] transform translate-y-full transition-transform duration-300 max-h-[85vh] overflow-y-auto sm:absolute sm:w-full">
+            <div class="w-12 h-1.5 bg-m3-surfaceVariant rounded-full mx-auto mb-6"></div>
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold text-m3-onSurface">Brand Settings</h2>
+                <button id="close-brand-btn" class="text-m3-secondary hover:text-m3-onSurface bg-m3-surfaceVariant/50 p-2 rounded-full">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            
+            <div class="flex flex-col gap-6 pb-20">
+                <!-- Color Palette -->
+                <div class="flex flex-col gap-3">
+                    <label class="text-sm font-semibold text-m3-secondary">Brand Colors</label>
+                    <div class="flex gap-4">
+                        <div class="flex flex-col items-center gap-1">
+                            <input type="color" id="primary-color" value="#005ac1" class="w-12 h-12 rounded cursor-pointer border-0 p-0">
+                            <span class="text-xs text-m3-outline">Primary</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-1">
+                            <input type="color" id="secondary-color" value="#121212" class="w-12 h-12 rounded cursor-pointer border-0 p-0">
+                            <span class="text-xs text-m3-outline">Background</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Typography -->
+                <div class="flex flex-col gap-3">
+                    <label class="text-sm font-semibold text-m3-secondary">Typography Style</label>
+                    <div class="flex gap-2 bg-m3-surfaceVariant p-1 rounded-xl">
+                        <button id="font-inter" class="flex-1 py-2 text-sm font-semibold rounded-lg bg-white shadow text-m3-onSurface transition-all">Modern (Inter)</button>
+                        <button id="font-playfair" class="flex-1 py-2 text-sm font-semibold rounded-lg text-m3-secondary hover:text-m3-onSurface transition-all" style="font-family: 'Playfair Display', serif;">Classic (Serif)</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Action Mobile Bar -->
+        <div class="fixed bottom-0 left-0 right-0 bg-m3-surface/95 backdrop-blur-md border-t border-m3-surfaceVariant px-4 py-3 flex justify-between items-center z-10 sm:absolute sm:bottom-0 sm:w-full pb-safe">
+            <button id="bottom-reset-btn" class="flex flex-col items-center justify-center gap-1 text-m3-secondary hover:text-m3-primary px-2 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                <span class="text-[10px] font-bold uppercase tracking-wider">Reset</span>
+            </button>
+            <div class="flex gap-2 flex-1 justify-end ml-4">
+                <button id="copy-btn" class="flex-1 flex items-center justify-center gap-2 bg-m3-primaryContainer text-m3-primary px-4 py-3.5 rounded-[16px] shadow-sm hover:bg-blue-100 active:scale-95 transition-all font-bold tracking-wide">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    Copy
+                </button>
+                <button id="download-btn" class="flex-1 flex items-center justify-center gap-2 bg-m3-primary text-m3-onPrimary px-4 py-3.5 rounded-[16px] shadow-elevation-1 hover:bg-blue-700 active:scale-95 transition-all font-bold tracking-wide">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    Export Final Photocard
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Global Preloaded Brand Logo Asset
+         * Assumes './TDS Logo no background.png' sits in the same root directory as index.html
+         */
+        const TDSLogoAsset = new Image();
+        let isTDSLogoReady = false;
+
+        const preloadTDSLogo = () => {
+            return new Promise((resolve) => {
+                TDSLogoAsset.onload = () => {
+                    isTDSLogoReady = true;
+                    resolve(true);
+                };
+                TDSLogoAsset.onerror = () => {
+                    console.warn("Could not load './TDS Logo no background.png' from root directory; using built-in TDS vector mark fallback.");
+                    isTDSLogoReady = false;
+                    resolve(false);
+                };
+                TDSLogoAsset.src = './TDS Logo no background.png';
+            });
+        };
+
+        /**
+         * State Management
+         * Source of truth for the photocard configurations
+         */
+        const AppState = {
+            title: "Hasina Card and Friendship Are Contradictory, Says Home Minister to India",
+            category: "POLITICS",
+            layoutTheme: "standard",
+            tone: "standard",
+            attribution: "",
+            readTime: "",
+            currentFormat: "4:5",
+            backgroundImage: null,
+            includeQuote: false,
+            quoteText: "আপনারা হাসিনা কার্ড খেলবেন আর বাংলাদেশের সঙ্গে বন্ধুত্বপূর্ণ সম্পর্ক চাইবেন; মনে রাখতে হবে, দুটো বিপরীত।",
+            quoteAttribution: "Salahuddin Ahmed, Home Minister",
+            showAuthor: false,
+            authorName: "",
+            authorPhoto: null,
+            logoAlignment: "auto",
+            brand: {
+                primaryColor: "#a31f24", // TDS Red
+                secondaryColor: "#111111", // TDS Black
+                fontFamily: "Oswald",
+                watermark: "The Dhaka Standard"
+            },
+            formats: {
+                "1:1": { width: 1080, height: 1080, label: "1:1 Square (IG/LinkedIn)", aspect: 100, padding: 60, fontSize: 84, logoScale: 0.19 },
+                "16:9": { width: 1200, height: 675, label: "16:9 Landscape (X/FB)", aspect: 56.25, padding: 50, fontSize: 64, logoScale: 0.16 },
+                "9:16": { width: 1080, height: 1920, label: "9:16 Vertical (Reels/Stories)", aspect: 177.77, padding: 80, fontSize: 96, logoScale: 0.21 },
+                "4:5": { width: 1080, height: 1350, label: "4:5 Portrait (LinkedIn)", aspect: 125, padding: 70, fontSize: 96, logoScale: 0.20 }
+            },
+            theme: {
+                bgBase: "#111111",
+                bgHighlight: "#1F1F1F",
+                textPrimary: "#FFFFFF",
+                textSecondary: "#DDDDDD"
+            }
+        };
+
+        /**
+         * CanvasEngine - Refactored with Dynamic Smart Logo Placement & Hardcoded TDS Identity
+         */
+        class CanvasEngine {
+            constructor(canvasId) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+            }
+
+            drawBackground(state, format) {
+                const { width, height } = format;
+                
+                // Base Fill
+                this.ctx.fillStyle = state.theme.bgBase;
+                this.ctx.fillRect(0, 0, width, height);
+
+                // Draw Uploaded Image using strict CSS object-fit: cover center-crop math
+                const img = state.backgroundImage;
+                if (img && (img.naturalWidth || img.width) > 0 && (img.naturalHeight || img.height) > 0) {
+                    const imgW = img.naturalWidth || img.width;
+                    const imgH = img.naturalHeight || img.height;
+                    const imgRatio = imgW / imgH;
+                    const canvasRatio = width / height;
+
+                    let sourceX = 0;
+                    let sourceY = 0;
+                    let sourceWidth = imgW;
+                    let sourceHeight = imgH;
+
+                    if (imgRatio > canvasRatio) {
+                        // Image is wider than canvas aspect ratio: crop left and right edges
+                        sourceWidth = imgH * canvasRatio;
+                        sourceX = (imgW - sourceWidth) / 2;
+                    } else {
+                        // Image is taller than canvas aspect ratio: crop top and bottom edges
+                        sourceHeight = imgW / canvasRatio;
+                        sourceY = (imgH - sourceHeight) / 2;
+                    }
+
+                    this.ctx.save();
+                    this.ctx.drawImage(
+                        img,
+                        sourceX,
+                        sourceY,
+                        sourceWidth,
+                        sourceHeight,
+                        0,
+                        0,
+                        width,
+                        height
+                    );
+                    this.ctx.restore();
+                } else {
+                    // Fallback dark editorial gradient when cleared or no photo uploaded
+                    const gradient = this.ctx.createLinearGradient(0, 0, width, height);
+                    gradient.addColorStop(0, "#1a1a1a");
+                    gradient.addColorStop(1, "#0a0a0a");
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.fillRect(0, 0, width, height);
+                }
+
+                // Heavy Scrim (Crucial for TDS text pop)
+                const scrim = this.ctx.createLinearGradient(0, 0, 0, height);
+                scrim.addColorStop(0, "rgba(0,0,0,0.1)");
+                scrim.addColorStop(0.4, "rgba(0,0,0,0.4)");
+                scrim.addColorStop(0.7, "rgba(0,0,0,0.85)");
+                scrim.addColorStop(1, "rgba(0,0,0,0.98)");
+                
+                this.ctx.fillStyle = scrim;
+                this.ctx.fillRect(0, 0, width, height);
+            }
+
+            getFooterLayout(format) {
+                const { width, padding } = format;
+                const paddingX = padding;
+                const availableWidth = width - (paddingX * 2);
+                const brandText = "The Dhaka Standard — An English Daily Newspaper";
+                const portalName = "The Dhaka Standard";
+                const tagline = "An English Daily Newspaper";
+                const socials = "f /thedhakastandard  •  thedhakastandard.com";
+                const minGap = 32;
+
+                // Measure default single-line sizes and dynamically scale down if needed
+                for (let scale = 1.0; scale >= 0.68; scale -= 0.04) {
+                    const nameFontSize = Math.round(format.fontSize * 0.26 * scale);
+                    const taglineFontSize = Math.round(format.fontSize * 0.20 * scale);
+                    const socialsFontSize = Math.round(format.fontSize * 0.20 * scale);
+                    const inlineGap = Math.round(12 * scale);
+
+                    this.ctx.font = `700 ${nameFontSize}px "Inter"`;
+                    const nameWidth = this.ctx.measureText(portalName).width;
+
+                    this.ctx.font = `italic 400 ${taglineFontSize}px "Playfair Display"`;
+                    const taglineWidth = this.ctx.measureText(tagline).width;
+
+                    this.ctx.font = `500 ${socialsFontSize}px "Inter"`;
+                    const socialsWidth = this.ctx.measureText(socials).width;
+
+                    const leftWidth = nameWidth + inlineGap + taglineWidth;
+                    if (leftWidth + minGap + socialsWidth <= availableWidth) {
+                        return {
+                            mode: 'single-line',
+                            footerHeight: 78,
+                            portalName,
+                            tagline,
+                            socials,
+                            nameFontSize,
+                            taglineFontSize,
+                            socialsFontSize,
+                            nameWidth,
+                            inlineGap
+                        };
+                    }
+                }
+
+                // Fallback: Stack onto two separate vertical lines to guarantee zero overlap
+                const stackedScale = Math.min(1, availableWidth / 880);
+                return {
+                    mode: 'stacked-rows',
+                    footerHeight: 104,
+                    brandText,
+                    portalName,
+                    tagline,
+                    socials,
+                    nameFontSize: Math.max(16, Math.round(format.fontSize * 0.24 * stackedScale)),
+                    taglineFontSize: Math.max(13, Math.round(format.fontSize * 0.19 * stackedScale)),
+                    socialsFontSize: Math.max(14, Math.round(format.fontSize * 0.19 * stackedScale)),
+                    inlineGap: 10
+                };
+            }
+
+            drawTDSFooter(state, format) {
+                const { width, height, padding } = format;
+                const paddingX = padding;
+                const rightEdgeX = width - paddingX;
+                const footerLayout = this.getFooterLayout(format);
+                const footerHeight = footerLayout.footerHeight;
+                const dividerY = height - padding - footerHeight;
+
+                this.ctx.save();
+                this.ctx.beginPath();
+                this.ctx.moveTo(paddingX, dividerY);
+                this.ctx.lineTo(rightEdgeX, dividerY);
+                this.ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+                this.ctx.lineWidth = 2;
+                this.ctx.stroke();
+
+                if (footerLayout.mode === 'single-line') {
+                    const centerY = dividerY + (footerHeight / 2);
+
+                    // Strictly left-align brand text to paddingX
+                    this.ctx.textAlign = "left";
+                    this.ctx.textBaseline = "middle";
+                    this.ctx.fillStyle = "#FFFFFF";
+                    this.ctx.font = `700 ${footerLayout.nameFontSize}px "Inter"`;
+                    this.ctx.fillText(footerLayout.portalName, paddingX, centerY);
+
+                    this.ctx.fillStyle = "rgba(255,255,255,0.78)";
+                    this.ctx.font = `italic 400 ${footerLayout.taglineFontSize}px "Playfair Display"`;
+                    this.ctx.fillText(
+                        footerLayout.tagline,
+                        paddingX + footerLayout.nameWidth + footerLayout.inlineGap,
+                        centerY
+                    );
+
+                    // Strictly right-align social/website text to canvas.width - paddingX
+                    this.ctx.textAlign = "right";
+                    this.ctx.fillStyle = "#FFFFFF";
+                    this.ctx.font = `500 ${footerLayout.socialsFontSize}px "Inter"`;
+                    this.ctx.fillText(footerLayout.socials, rightEdgeX, centerY);
+                } else {
+                    const row1Y = dividerY + (footerHeight * 0.35);
+                    const row2Y = dividerY + (footerHeight * 0.75);
+
+                    // Line 1: Strictly left-aligned brand text to paddingX
+                    this.ctx.textAlign = "left";
+                    this.ctx.textBaseline = "middle";
+                    this.ctx.fillStyle = "#FFFFFF";
+                    this.ctx.font = `700 ${footerLayout.nameFontSize}px "Inter"`;
+                    const nameW = this.ctx.measureText(footerLayout.portalName).width;
+                    this.ctx.fillText(footerLayout.portalName, paddingX, row1Y);
+
+                    this.ctx.fillStyle = "rgba(255,255,255,0.78)";
+                    this.ctx.font = `italic 400 ${footerLayout.taglineFontSize}px "Playfair Display"`;
+                    this.ctx.fillText(footerLayout.tagline, paddingX + nameW + footerLayout.inlineGap, row1Y);
+
+                    // Line 2: Strictly right-aligned social/website text to canvas.width - paddingX
+                    this.ctx.textAlign = "right";
+                    this.ctx.fillStyle = "#FFFFFF";
+                    this.ctx.font = `500 ${footerLayout.socialsFontSize}px "Inter"`;
+                    this.ctx.fillText(footerLayout.socials, rightEdgeX, row2Y);
+                }
+
+                this.ctx.restore();
+            }
+
+            calculateWrap(ctx, text, maxWidth) {
+                const words = (text || '').split(' ');
+                let line = '';
+                let lineArray = [];
+                for (let n = 0; n < words.length; n++) {
+                    let testLine = line + words[n] + ' ';
+                    let metrics = ctx.measureText(testLine);
+                    if (metrics.width > maxWidth && n > 0) {
+                        lineArray.push(line.trim());
+                        line = words[n] + ' ';
+                    } else {
+                        line = testLine;
+                    }
+                    if (n === words.length - 1) lineArray.push(line.trim());
+                }
+                return lineArray;
+            }
+
+            /**
+             * Calculates the exact layout metrics and bounding boxes (X, Y, width, height)
+             * for the Headline, Quotes, and Author layers prior to drawing.
+             */
+            calculateLayoutAndBoundingBoxes(state, format) {
+                const { width, height, padding } = format;
+                const footerLayout = this.getFooterLayout(format);
+                const footerClearance = padding + footerLayout.footerHeight + 30;
+                const contentMaxWidth = width - (padding * 2);
+                let currentY = height - footerClearance;
+
+                const boxes = [];
+                const layoutData = {
+                    author: null,
+                    headline: null,
+                    quote: null,
+                    boxes: boxes,
+                    combinedBounds: null
+                };
+
+                // 1. Author Layer Bounding Box
+                if (state.showAuthor && state.authorName) {
+                    const authorFontSize = format.fontSize * 0.35;
+                    const blockHeight = authorFontSize * 2;
+                    currentY -= blockHeight;
+
+                    this.ctx.font = `600 ${authorFontSize}px "Inter"`;
+                    const nameWidth = this.ctx.measureText(state.authorName).width;
+                    const avatarOffset = state.authorPhoto ? (authorFontSize * 2) + 15 : 0;
+                    const boxWidth = Math.min(contentMaxWidth, avatarOffset + nameWidth);
+
+                    const authorBox = {
+                        type: 'author',
+                        x: padding,
+                        y: currentY,
+                        width: boxWidth,
+                        height: blockHeight,
+                        fontSize: authorFontSize
+                    };
+                    layoutData.author = authorBox;
+                    boxes.push(authorBox);
+
+                    currentY -= 20;
+                }
+
+                // 2. Headline & Quote Layers Bounding Boxes
+                if (state.layoutTheme === 'quote' && state.includeQuote) {
+                    if (state.title) {
+                        const hlFontSize = format.fontSize * 0.5;
+                        this.ctx.font = `700 ${hlFontSize}px "Oswald"`;
+                        const lines = this.calculateWrap(this.ctx, state.title.toUpperCase(), contentMaxWidth);
+                        const lineHeight = hlFontSize * 1.2;
+                        const totalHlHeight = lines.length * lineHeight;
+                        const maxLineWidth = Math.max(...lines.map(l => this.ctx.measureText(l).width), 0);
+
+                        currentY -= totalHlHeight;
+                        const hlBox = {
+                            type: 'headline',
+                            x: padding,
+                            y: currentY,
+                            width: Math.min(contentMaxWidth, maxLineWidth),
+                            height: totalHlHeight,
+                            lines,
+                            fontSize: hlFontSize,
+                            lineHeight
+                        };
+                        layoutData.headline = hlBox;
+                        boxes.push(hlBox);
+                        currentY -= 40;
+                    }
+
+                    const qFontSize = format.fontSize * 0.7;
+                    this.ctx.font = `italic 700 ${qFontSize}px "Playfair Display"`;
+                    const qText = state.quoteText || "Enter your editorial quote...";
+                    const lines = this.calculateWrap(this.ctx, qText, contentMaxWidth);
+                    const qLineHeight = qFontSize * 1.3;
+                    const totalQHeight = lines.length * qLineHeight;
+                    const maxQLineWidth = Math.max(...lines.map(l => this.ctx.measureText(l).width), 0);
+
+                    const markSize = format.fontSize * 2.5;
+                    const attrExtraHeight = state.quoteAttribution ? (qFontSize * 0.6) : 0;
+                    let quoteStartY = currentY - totalQHeight - attrExtraHeight;
+                    if (quoteStartY < padding + 150) quoteStartY = padding + 150;
+
+                    const qBox = {
+                        type: 'quote',
+                        x: padding,
+                        y: Math.max(padding, quoteStartY - (markSize * 0.3)),
+                        width: Math.min(contentMaxWidth, Math.max(maxQLineWidth, contentMaxWidth * 0.6)),
+                        height: totalQHeight + attrExtraHeight + (markSize * 0.3),
+                        quoteStartY,
+                        lines,
+                        fontSize: qFontSize,
+                        lineHeight: qLineHeight,
+                        markSize,
+                        totalQHeight
+                    };
+                    layoutData.quote = qBox;
+                    boxes.push(qBox);
+                } else {
+                    // STANDARD NEWS THEME
+                    let text = (state.title || "YOUR HEADLINE APPEARS HERE").toUpperCase();
+                    let hlFontSize = format.fontSize * 1.1;
+                    this.ctx.font = `700 ${hlFontSize}px "Oswald"`;
+
+                    let lines = this.calculateWrap(this.ctx, text, contentMaxWidth);
+                    let lineHeight = hlFontSize * 1.1;
+
+                    while (lines.length > 4 && hlFontSize > format.fontSize * 0.5) {
+                        hlFontSize -= 4;
+                        this.ctx.font = `700 ${hlFontSize}px "Oswald"`;
+                        lines = this.calculateWrap(this.ctx, text, contentMaxWidth);
+                        lineHeight = hlFontSize * 1.1;
+                    }
+
+                    const totalHlHeight = lines.length * lineHeight;
+                    const maxLineWidth = Math.max(...lines.map(l => this.ctx.measureText(l).width), 0);
+                    currentY -= totalHlHeight;
+
+                    const hlBox = {
+                        type: 'headline',
+                        x: padding,
+                        y: currentY,
+                        width: Math.min(contentMaxWidth, maxLineWidth),
+                        height: totalHlHeight,
+                        lines,
+                        fontSize: hlFontSize,
+                        lineHeight
+                    };
+                    layoutData.headline = hlBox;
+                    boxes.push(hlBox);
+
+                    currentY -= 40;
+
+                    if (state.includeQuote && state.quoteText) {
+                        const qFontSize = format.fontSize * 0.45;
+                        this.ctx.font = `italic 700 ${qFontSize}px "Playfair Display"`;
+                        const qLines = this.calculateWrap(this.ctx, state.quoteText, contentMaxWidth - 60);
+                        const qLineHeight = qFontSize * 1.3;
+                        const totalQHeight = qLines.length * qLineHeight;
+                        const maxQLineWidth = Math.max(...qLines.map(l => this.ctx.measureText(l).width), 0);
+                        const attrHeight = state.quoteAttribution ? qFontSize : 0;
+
+                        currentY -= (totalQHeight + attrHeight);
+
+                        const qBox = {
+                            type: 'quote',
+                            x: padding,
+                            y: Math.max(padding, currentY - (qFontSize * 0.5)),
+                            width: Math.min(contentMaxWidth, maxQLineWidth + 60),
+                            height: totalQHeight + attrHeight + (qFontSize * 0.5),
+                            quoteStartY: currentY,
+                            lines: qLines,
+                            fontSize: qFontSize,
+                            lineHeight: qLineHeight,
+                            totalQHeight
+                        };
+                        layoutData.quote = qBox;
+                        boxes.push(qBox);
+                    }
+                }
+
+                // Compute aggregate bounding box (X, Y, width, height) of Headline + Quotes + Author
+                if (boxes.length > 0) {
+                    const minX = Math.min(...boxes.map(b => b.x));
+                    const minY = Math.min(...boxes.map(b => b.y));
+                    const maxX = Math.max(...boxes.map(b => b.x + b.width));
+                    const maxY = Math.max(...boxes.map(b => b.y + b.height));
+                    layoutData.combinedBounds = {
+                        x: minX,
+                        y: minY,
+                        width: maxX - minX,
+                        height: maxY - minY
+                    };
+                } else {
+                    layoutData.combinedBounds = { x: padding, y: currentY, width: 0, height: 0 };
+                }
+
+                return layoutData;
+            }
+
+            /**
+             * Computes intersection area between two rectangles {x, y, width, height}
+             */
+            getIntersectionArea(rectA, rectB) {
+                const xOverlap = Math.max(0, Math.min(rectA.x + rectA.width, rectB.x + rectB.width) - Math.max(rectA.x, rectB.x));
+                const yOverlap = Math.max(0, Math.min(rectA.y + rectA.height, rectB.y + rectB.height) - Math.max(rectA.y, rectB.y));
+                return xOverlap * yOverlap;
+            }
+
+            /**
+             * Determines the optimal corner quadrant for the TDS logo.
+             * If 'auto' is selected, evaluates all 4 quadrants against the Headline & Quote bounding boxes
+             * and picks the quadrant with the most unobstructed space.
+             */
+            resolveLogoPlacement(state, format, layoutData, logoWidth, logoHeight) {
+                const { width, height, padding } = format;
+                const footerLayout = this.getFooterLayout(format);
+                const footerTopY = height - padding - footerLayout.footerHeight;
+                const usableHeight = footerTopY - (padding * 0.5);
+
+                const cornerCoordinates = {
+                    'top-left': {
+                        quadrant: 'top-left',
+                        x: padding,
+                        y: padding
+                    },
+                    'top-right': {
+                        quadrant: 'top-right',
+                        x: width - padding - logoWidth,
+                        y: padding
+                    },
+                    'bottom-left': {
+                        quadrant: 'bottom-left',
+                        x: padding,
+                        y: footerTopY - logoHeight - 24
+                    },
+                    'bottom-right': {
+                        quadrant: 'bottom-right',
+                        x: width - padding - logoWidth,
+                        y: footerTopY - logoHeight - 24
+                    }
+                };
+
+                // Manual Override
+                if (state.logoAlignment && state.logoAlignment !== 'auto' && cornerCoordinates[state.logoAlignment]) {
+                    return cornerCoordinates[state.logoAlignment];
+                }
+
+                // Auto (Smart Placement) Quadrant Evaluation
+                const halfW = width / 2;
+                const halfH = usableHeight / 2;
+                const quadrants = [
+                    { key: 'top-left', rect: { x: 0, y: 0, width: halfW, height: halfH } },
+                    { key: 'top-right', rect: { x: halfW, y: 0, width: halfW, height: halfH } },
+                    { key: 'bottom-left', rect: { x: 0, y: halfH, width: halfW, height: halfH } },
+                    { key: 'bottom-right', rect: { x: halfW, y: halfH, width: halfW, height: halfH } }
+                ];
+
+                let bestQuadrant = 'top-left';
+                let maxEmptyScore = -Infinity;
+
+                quadrants.forEach((q) => {
+                    const totalQuadrantArea = q.rect.width * q.rect.height;
+                    let occupiedArea = 0;
+
+                    // Subtract area occupied by Headline, Quotes, and Author bounding boxes
+                    layoutData.boxes.forEach((box) => {
+                        const paddedBox = {
+                            x: box.x - 20,
+                            y: box.y - 20,
+                            width: box.width + 40,
+                            height: box.height + 40
+                        };
+                        occupiedArea += this.getIntersectionArea(q.rect, paddedBox);
+                    });
+
+                    // Check direct collision between the candidate logo bounding box and any text layer
+                    const candidatePos = cornerCoordinates[q.key];
+                    const candidateLogoRect = {
+                        x: candidatePos.x - 16,
+                        y: candidatePos.y - 16,
+                        width: logoWidth + 32,
+                        height: logoHeight + 32
+                    };
+
+                    let directLogoOverlap = 0;
+                    layoutData.boxes.forEach((box) => {
+                        directLogoOverlap += this.getIntersectionArea(candidateLogoRect, box);
+                    });
+
+                    // Calculate net empty space score (heavily penalize any direct logo-text collision)
+                    const emptyScore = (totalQuadrantArea - occupiedArea) - (directLogoOverlap * 12);
+
+                    if (emptyScore > maxEmptyScore) {
+                        maxEmptyScore = emptyScore;
+                        bestQuadrant = q.key;
+                    }
+                });
+
+                return cornerCoordinates[bestQuadrant];
+            }
+
+            /**
+             * Renders the preloaded TDS Logo (or exact vector mark fallback if local asset isn't found in sandbox)
+             * and positions the Category Badge so it never collides with the logo.
+             */
+            drawHeaderAndLogo(state, format, layoutData) {
+                const { width, padding } = format;
+
+                // Proportional logo sizing based on aspect ratio
+                const minDim = Math.min(format.width, format.height);
+                const scaleFactor = format.logoScale || 0.20;
+                const targetLogoWidth = Math.round(minDim * scaleFactor);
+
+                let logoAspect = 1.15; // Aspect ratio of 'TDS Logo no background.png'
+                if (isTDSLogoReady && TDSLogoAsset.naturalWidth > 0 && TDSLogoAsset.naturalHeight > 0) {
+                    logoAspect = TDSLogoAsset.naturalWidth / TDSLogoAsset.naturalHeight;
+                }
+                const logoWidth = targetLogoWidth;
+                const logoHeight = Math.round(logoWidth / logoAspect);
+
+                // Resolve Smart or Overridden Logo Placement
+                const placement = this.resolveLogoPlacement(state, format, layoutData, logoWidth, logoHeight);
+
+                // Draw subtle light editorial backing pill so the black & red transparent TDS logo is 100% legible on dark scrims
+                const pillPadX = Math.round(logoWidth * 0.08);
+                const pillPadY = Math.round(logoHeight * 0.06);
+                const pillX = placement.x - pillPadX;
+                const pillY = placement.y - pillPadY;
+                const pillW = logoWidth + (pillPadX * 2);
+                const pillH = logoHeight + (pillPadY * 2);
+
+                this.ctx.save();
+                this.ctx.fillStyle = "rgba(255, 255, 255, 0.94)";
+                this.ctx.shadowColor = "rgba(0, 0, 0, 0.35)";
+                this.ctx.shadowBlur = 16;
+                this.ctx.shadowOffsetY = 4;
+                this.ctx.beginPath();
+                this.ctx.roundRect(pillX, pillY, pillW, pillH, 12);
+                this.ctx.fill();
+                this.ctx.restore();
+
+                if (isTDSLogoReady && TDSLogoAsset.naturalWidth > 0) {
+                    this.ctx.drawImage(TDSLogoAsset, placement.x, placement.y, logoWidth, logoHeight);
+                } else {
+                    // Built-in recreation of 'TDS Logo no background.png' in case the local file isn't mounted in preview
+                    this.ctx.save();
+                    const cx = placement.x + logoWidth / 2;
+                    const topY = placement.y + logoHeight * 0.12;
+                    const mainFontSize = Math.round(logoHeight * 0.50);
+
+                    this.ctx.font = `900 ${mainFontSize}px "Playfair Display", serif`;
+                    this.ctx.textBaseline = "top";
+                    this.ctx.textAlign = "center";
+
+                    // "TD" in Black, "S" in TDS Red
+                    const tdWidth = this.ctx.measureText("TD").width;
+                    const sWidth = this.ctx.measureText("S").width;
+                    const totalMarkW = tdWidth + sWidth;
+                    const startX = cx - (totalMarkW / 2);
+
+                    this.ctx.textAlign = "left";
+                    this.ctx.fillStyle = "#181818";
+                    this.ctx.fillText("TD", startX, topY);
+                    this.ctx.fillStyle = "#a31f24";
+                    this.ctx.fillText("S", startX + tdWidth - (mainFontSize * 0.06), topY);
+
+                    // Sub-caption "The Dhaka Standard"
+                    const subFontSize = Math.max(10, Math.round(logoHeight * 0.115));
+                    const subY = placement.y + logoHeight * 0.68;
+                    this.ctx.font = `600 ${subFontSize}px "Playfair Display", serif`;
+                    const w1 = "The ";
+                    const w2 = "Dhaka ";
+                    const w3 = "Standard";
+                    const subTotalW = this.ctx.measureText(w1 + w2 + w3).width;
+                    let subX = cx - (subTotalW / 2);
+
+                    this.ctx.fillStyle = "#181818";
+                    this.ctx.fillText(w1, subX, subY);
+                    subX += this.ctx.measureText(w1).width;
+
+                    this.ctx.fillStyle = "#a31f24";
+                    this.ctx.fillText(w2, subX, subY);
+                    subX += this.ctx.measureText(w2).width;
+
+                    this.ctx.fillStyle = "#181818";
+                    this.ctx.fillText(w3, subX, subY);
+
+                    // Divider line & red diamond
+                    const lineY = placement.y + logoHeight * 0.86;
+                    const halfSpan = subTotalW * 0.48;
+                    this.ctx.strokeStyle = "#181818";
+                    this.ctx.lineWidth = Math.max(1, logoHeight * 0.01);
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(cx - halfSpan, lineY);
+                    this.ctx.lineTo(cx - 10, lineY);
+                    this.ctx.moveTo(cx + 10, lineY);
+                    this.ctx.lineTo(cx + halfSpan, lineY);
+                    this.ctx.stroke();
+
+                    const dSize = Math.max(3, logoHeight * 0.03);
+                    this.ctx.fillStyle = "#a31f24";
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(cx, lineY - dSize);
+                    this.ctx.lineTo(cx + dSize, lineY);
+                    this.ctx.lineTo(cx, lineY + dSize);
+                    this.ctx.lineTo(cx - dSize, lineY);
+                    this.ctx.closePath();
+                    this.ctx.fill();
+                    this.ctx.restore();
+                }
+
+                // Category Badge (Places in Top-Right by default, or shifts to Top-Left if Logo is in Top-Right)
+                const badgeText = (state.category || "NEWS").toUpperCase();
+                const badgeColor = state.brand.primaryColor;
+
+                this.ctx.font = `700 ${format.fontSize * 0.35}px "Inter"`;
+                const textWidth = this.ctx.measureText(badgeText).width;
+                const badgePaddingX = 20;
+                const badgePaddingY = 12;
+                const badgeHeight = (format.fontSize * 0.35) + (badgePaddingY * 2);
+                const badgeWidth = textWidth + (badgePaddingX * 2);
+
+                const badgeX = placement.quadrant === 'top-right'
+                    ? padding
+                    : width - padding - badgeWidth;
+                const badgeY = padding;
+
+                this.ctx.fillStyle = badgeColor;
+                this.ctx.fillRect(badgeX, badgeY, badgeWidth, badgeHeight);
+
+                this.ctx.fillStyle = "#FFFFFF";
+                this.ctx.textAlign = "center";
+                this.ctx.textBaseline = "middle";
+                this.ctx.fillText(badgeText, badgeX + (badgeWidth / 2), badgeY + (badgeHeight / 2) + 2);
+            }
+
+            drawContent(state, format, layoutData) {
+                const { padding } = format;
+
+                // 1. Author Layer
+                if (layoutData.author) {
+                    const { y, fontSize } = layoutData.author;
+                    this.ctx.textAlign = "left";
+                    this.ctx.textBaseline = "middle";
+
+                    const avatarRadius = fontSize;
+                    const avatarX = padding + avatarRadius;
+                    const avatarY = y + avatarRadius;
+
+                    if (state.authorPhoto) {
+                        this.ctx.save();
+                        this.ctx.beginPath();
+                        this.ctx.arc(avatarX, avatarY, avatarRadius, 0, Math.PI * 2);
+                        this.ctx.closePath();
+                        this.ctx.clip();
+
+                        const img = state.authorPhoto;
+                        const size = avatarRadius * 2;
+                        let drawWidth, drawHeight, offsetX, offsetY;
+
+                        if (img.width > img.height) {
+                            drawHeight = size;
+                            drawWidth = img.width * (size / img.height);
+                            offsetX = avatarX - (drawWidth / 2);
+                            offsetY = avatarY - avatarRadius;
+                        } else {
+                            drawWidth = size;
+                            drawHeight = img.height * (size / img.width);
+                            offsetX = avatarX - avatarRadius;
+                            offsetY = avatarY - (drawHeight / 2);
+                        }
+                        this.ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+                        this.ctx.restore();
+                    }
+
+                    this.ctx.fillStyle = "#FFFFFF";
+                    this.ctx.font = `600 ${fontSize}px "Inter"`;
+                    const textX = state.authorPhoto ? avatarX + avatarRadius + 15 : padding;
+                    this.ctx.fillText(state.authorName, textX, avatarY);
+                }
+
+                // 2. Layout Theme: Quote Focus vs Standard News
+                if (state.layoutTheme === 'quote' && state.includeQuote) {
+                    if (layoutData.headline) {
+                        const { y, lines, fontSize, lineHeight } = layoutData.headline;
+                        this.ctx.font = `700 ${fontSize}px "Oswald"`;
+                        this.ctx.fillStyle = "#FFFFFF";
+                        this.ctx.textAlign = "left";
+                        this.ctx.textBaseline = "top";
+                        lines.forEach((line, i) => {
+                            this.ctx.fillText(line, padding, y + (i * lineHeight));
+                        });
+                    }
+
+                    if (layoutData.quote) {
+                        const { quoteStartY, lines, fontSize, lineHeight, markSize, totalQHeight } = layoutData.quote;
+                        this.ctx.font = `900 ${markSize}px "Oswald"`;
+                        this.ctx.fillStyle = state.brand.primaryColor;
+                        this.ctx.textAlign = "left";
+                        this.ctx.textBaseline = "top";
+                        this.ctx.fillText("“", padding - 10, quoteStartY - (markSize * 0.3));
+
+                        this.ctx.fillStyle = "#FFFFFF";
+                        this.ctx.font = `italic 700 ${fontSize}px "Playfair Display"`;
+                        lines.forEach((line, i) => {
+                            this.ctx.fillText(line, padding, quoteStartY + (i * lineHeight));
+                        });
+
+                        if (state.quoteAttribution) {
+                            this.ctx.font = `600 ${fontSize * 0.4}px "Inter"`;
+                            this.ctx.fillStyle = "rgba(255,255,255,0.8)";
+                            this.ctx.fillText(`— ${state.quoteAttribution}`, padding, quoteStartY + totalQHeight + 10);
+                        }
+                    }
+                } else {
+                    if (layoutData.headline) {
+                        const { y, lines, fontSize, lineHeight } = layoutData.headline;
+                        this.ctx.font = `700 ${fontSize}px "Oswald"`;
+                        this.ctx.fillStyle = "#FFFFFF";
+                        this.ctx.textAlign = "left";
+                        this.ctx.textBaseline = "top";
+                        lines.forEach((line, i) => {
+                            this.ctx.fillText(line, padding, y + (i * lineHeight));
+                        });
+                    }
+
+                    if (layoutData.quote) {
+                        const { quoteStartY, lines, fontSize, lineHeight, totalQHeight } = layoutData.quote;
+                        this.ctx.font = `900 ${fontSize * 3}px "Oswald"`;
+                        this.ctx.fillStyle = state.brand.primaryColor;
+                        this.ctx.textAlign = "left";
+                        this.ctx.textBaseline = "top";
+                        this.ctx.fillText("“", padding, quoteStartY - (fontSize * 0.8));
+
+                        this.ctx.fillStyle = "#FFFFFF";
+                        this.ctx.font = `italic 700 ${fontSize}px "Playfair Display"`;
+                        lines.forEach((line, i) => {
+                            this.ctx.fillText(line, padding + 40, quoteStartY + (i * lineHeight));
+                        });
+
+                        if (state.quoteAttribution) {
+                            this.ctx.font = `600 ${fontSize * 0.6}px "Inter"`;
+                            this.ctx.fillStyle = state.brand.primaryColor;
+                            this.ctx.fillText(`— ${state.quoteAttribution.toUpperCase()}`, padding + 40, quoteStartY + totalQHeight + 10);
+                        }
+                    }
+                }
+            }
+
+            render(state) {
+                const format = state.formats[state.currentFormat];
+                if (this.canvas.width !== format.width || this.canvas.height !== format.height) {
+                    this.canvas.width = format.width;
+                    this.canvas.height = format.height;
+                }
+                this.ctx.clearRect(0, 0, format.width, format.height);
+                
+                // 1. Draw Background & Scrim
+                this.drawBackground(state, format);
+                // 2. Draw Hardcoded TDS Footer
+                this.drawTDSFooter(state, format);
+                // 3. Calculate Bounding Boxes for Headline, Quotes, and Author
+                const layoutData = this.calculateLayoutAndBoundingBoxes(state, format);
+                // 4. Draw Content Layers
+                this.drawContent(state, format, layoutData);
+                // 5. Dynamically Place & Render Hardcoded TDS Logo + Category Badge
+                this.drawHeaderAndLogo(state, format, layoutData);
+            }
+
+            export() {
+                return this.canvas.toDataURL('image/png', 1.0);
+            }
+        }
+
+        /**
+         * BrandStorage
+         * Handles localStorage persistence for brand preferences
+         */
+        const BrandStorage = {
+            save(state) {
+                try {
+                    localStorage.setItem('photocardBrandState', JSON.stringify({
+                        primaryColor: state.brand.primaryColor,
+                        secondaryColor: state.brand.secondaryColor,
+                        fontFamily: state.brand.fontFamily,
+                        logoAlignment: state.logoAlignment
+                    }));
+                } catch(e) { console.warn("Storage quota exceeded"); }
+            },
+            
+            load(state, renderCallback) {
+                const saved = localStorage.getItem('photocardBrandState');
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        if (parsed.primaryColor) state.brand.primaryColor = parsed.primaryColor;
+                        if (parsed.secondaryColor) state.brand.secondaryColor = parsed.secondaryColor;
+                        if (parsed.fontFamily) state.brand.fontFamily = parsed.fontFamily;
+                        if (parsed.logoAlignment) state.logoAlignment = parsed.logoAlignment;
+                        state.brand.watermark = "The Dhaka Standard";
+                        renderCallback();
+                        return true;
+                    } catch (e) { console.error("Could not parse saved brand state"); }
+                }
+                return false;
+            }
+        };
+
+        /**
+         * BatchExporter
+         * Sequentially generates and downloads all aspect ratios
+         */
+        const BatchExporter = {
+            async exportAll(state, engine, toastCallback) {
+                const originalFormat = state.currentFormat;
+                const formats = Object.keys(state.formats);
+                
+                for (let i = 0; i < formats.length; i++) {
+                    const formatName = formats[i];
+                    state.currentFormat = formatName;
+                    engine.render(state);
+                    
+                    toastCallback(`Exporting ${i+1}/${formats.length} (${formatName})...`);
+                    
+                    const dataUrl = engine.export();
+                    const link = document.createElement('a');
+                    
+                    let slug = state.title ? state.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').substring(0, 30) : 'photocard';
+                    if (!slug) slug = 'photocard';
+                    
+                    const fName = formatName === '1:1' ? 'instagram-1x1' : 
+                                  formatName === '16:9' ? 'twitter-16x9' : 
+                                  formatName === '9:16' ? 'story-9x16' : 'linkedin-4x5';
+                                  
+                    link.download = `${slug}-${fName}.png`;
+                    link.href = dataUrl;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    // Allow UI to update and browser to process download queue
+                    await new Promise(r => setTimeout(r, 1200)); 
+                }
+                
+                state.currentFormat = originalFormat;
+                engine.render(state);
+                toastCallback("Batch Export Complete!");
+            }
+        };
+
+        /**
+         * UIController
+         * Wires up the DOM events and synchronizes state with Canvas
+         */
+        class UIController {
+            constructor(state, engine, storage, batchExporter) {
+                this.state = state;
+                this.engine = engine;
+                this.storage = storage;
+                this.batchExporter = batchExporter;
+                
+                // Form Inputs
+                this.titleInput = document.getElementById('title-input');
+                this.articleTextInput = document.getElementById('article-text-input');
+                this.generateHeadlineBtn = document.getElementById('generate-headline-btn');
+                this.textErrorMsg = document.getElementById('text-error-msg');
+                this.categoryInput = document.getElementById('category-input');
+                this.layoutThemeInput = document.getElementById('layout-theme-input'); // New Theme Input
+                this.attributionInput = document.getElementById('attribution-input');
+                this.readTimeInput = document.getElementById('read-time-input');
+                
+                // Image Uploads
+                this.imageUpload = document.getElementById('image-upload');
+                this.dropzone = document.getElementById('dropzone');
+                this.bgUploadStatus = document.getElementById('bg-upload-status');
+                this.removeImageBtn = document.getElementById('remove-image-btn');
+                
+                // Formatting & Tone Options
+                this.formatSelectorsContainer = document.getElementById('format-selectors');
+                this.ratioLabel = document.getElementById('ratio-label');
+                this.canvasWrapper = document.getElementById('canvas-wrapper');
+                this.toneBtns = document.querySelectorAll('.tone-btn');
+                this.quoteFields = document.getElementById('quote-fields');
+                this.analyticalFields = document.getElementById('analytical-fields');
+                
+                this.includeQuoteToggle = document.getElementById('include-quote-toggle');
+                this.quoteDrawer = document.getElementById('quote-drawer');
+                this.quoteTextInput = document.getElementById('quote-text-input');
+                this.quoteAttributionInput = document.getElementById('quote-attribution-input');
+                
+                this.showAuthorToggle = document.getElementById('show-author-toggle');
+                this.authorDrawer = document.getElementById('author-drawer');
+                this.authorUpload = document.getElementById('author-upload');
+                this.authorDropzone = document.getElementById('author-dropzone');
+                this.authorNameInput = document.getElementById('author-name-input');
+                this.authorPreviewImg = document.getElementById('author-preview-img');
+                this.removeAuthorBtn = document.getElementById('remove-author-btn');
+
+                // Logo Alignment Selector
+                this.logoAlignmentInput = document.getElementById('logo-alignment-input');
+
+                // Brand Settings
+                this.brandBtn = document.getElementById('brand-btn');
+                this.closeBrandBtn = document.getElementById('close-brand-btn');
+                this.brandSheet = document.getElementById('brand-sheet');
+                this.brandSheetOverlay = document.getElementById('brand-sheet-overlay');
+                this.primaryColorInput = document.getElementById('primary-color');
+                this.secondaryColorInput = document.getElementById('secondary-color');
+                this.fontInterBtn = document.getElementById('font-inter');
+                this.fontPlayfairBtn = document.getElementById('font-playfair');
+                
+                // Actions
+                this.downloadBtn = document.getElementById('download-btn');
+                this.copyBtn = document.getElementById('copy-btn');
+                this.resetBtn = document.getElementById('reset-btn');
+                this.bottomResetBtn = document.getElementById('bottom-reset-btn');
+                this.batchExportBtn = document.getElementById('batch-export-btn');
+                
+                // Verification Module Elements
+                this.verifyBtn = document.getElementById('verify-btn');
+                this.verificationBanner = document.getElementById('verification-banner');
+                this.verificationStatus = document.getElementById('verification-status');
+                this.verificationScore = document.getElementById('verification-score');
+                this.verificationReasoning = document.getElementById('verification-reasoning');
+            }
+
+            showToast(message, isError = false) {
+                const container = document.getElementById('toast-container');
+                const toast = document.createElement('div');
+                toast.className = `px-6 py-3 rounded-full shadow-elevation-3 font-semibold text-sm transform transition-all -translate-y-full opacity-0 ${isError ? 'bg-red-600 text-white' : 'bg-m3-onSurface text-m3-surface'}`;
+                toast.innerText = message;
+                container.appendChild(toast);
+                
+                requestAnimationFrame(() => toast.classList.remove('-translate-y-full', 'opacity-0'));
+                setTimeout(() => {
+                    toast.classList.add('-translate-y-full', 'opacity-0');
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
+            }
+
+            updateAndRender() {
+                this.state.title = this.titleInput.value;
+                this.state.category = this.categoryInput.value;
+                this.state.attribution = this.attributionInput.value;
+                this.state.readTime = this.readTimeInput.value;
+                this.engine.render(this.state);
+            }
+
+            syncBrandUI() {
+                this.primaryColorInput.value = this.state.brand.primaryColor;
+                this.secondaryColorInput.value = this.state.brand.secondaryColor;
+                
+                if (this.logoAlignmentInput) {
+                    this.logoAlignmentInput.value = this.state.logoAlignment || 'auto';
+                }
+
+                if (this.state.brand.fontFamily === 'Inter') {
+                    this.fontInterBtn.className = 'flex-1 py-2 text-sm font-semibold rounded-lg bg-white shadow text-m3-onSurface transition-all';
+                    this.fontPlayfairBtn.className = 'flex-1 py-2 text-sm font-semibold rounded-lg text-m3-secondary hover:text-m3-onSurface transition-all';
+                } else {
+                    this.fontPlayfairBtn.className = 'flex-1 py-2 text-sm font-semibold rounded-lg bg-white shadow text-m3-onSurface transition-all';
+                    this.fontInterBtn.className = 'flex-1 py-2 text-sm font-semibold rounded-lg text-m3-secondary hover:text-m3-onSurface transition-all';
+                }
+            }
+
+            renderFormatButtons() {
+                this.formatSelectorsContainer.innerHTML = '';
+                Object.keys(this.state.formats).forEach(key => {
+                    const btn = document.createElement('button');
+                    const isSelected = this.state.currentFormat === key;
+                    btn.className = isSelected 
+                        ? 'whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-colors bg-m3-primary text-m3-onPrimary shadow-elevation-1' 
+                        : 'whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-colors bg-white border border-m3-outline text-m3-onSurface hover:bg-m3-surfaceVariant';
+                    
+                    btn.innerText = key;
+                    btn.addEventListener('click', () => {
+                        this.state.currentFormat = key;
+                        this.ratioLabel.innerText = this.state.formats[key].label;
+                        this.canvasWrapper.style.paddingTop = `${this.state.formats[key].aspect}%`;
+                        this.renderFormatButtons();
+                        this.updateAndRender();
+                    });
+                    this.formatSelectorsContainer.appendChild(btn);
+                });
+            }
+
+            renderToneButtons() {
+                this.toneBtns.forEach(btn => {
+                    const isSelected = this.state.tone === btn.dataset.tone;
+                    btn.className = isSelected 
+                        ? 'tone-btn whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-colors bg-m3-primary text-m3-onPrimary shadow-elevation-1' 
+                        : 'tone-btn whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-colors bg-white border border-m3-outline text-m3-onSurface hover:bg-m3-surfaceVariant';
+                });
+                
+                this.quoteFields.classList.toggle('hidden', this.state.tone !== 'quote');
+                this.quoteFields.classList.toggle('flex', this.state.tone === 'quote');
+                this.analyticalFields.classList.toggle('hidden', this.state.tone !== 'analytical');
+                this.analyticalFields.classList.toggle('flex', this.state.tone === 'analytical');
+            }
+
+            handleImageFile(file) {
+                if (!file) return;
+                if (!file.type.startsWith('image/')) {
+                    this.showToast("Please select a valid image file.", true);
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const dataUrl = e.target.result;
+                    const img = new Image();
+                    img.onload = () => {
+                        this.state.backgroundImage = img;
+                        if (this.removeImageBtn) {
+                            this.removeImageBtn.classList.remove('hidden');
+                        }
+                        if (this.bgUploadStatus) {
+                            this.bgUploadStatus.innerText = `Loaded: ${file.name}`;
+                        }
+                        this.updateAndRender();
+                    };
+                    img.onerror = () => {
+                        this.showToast("Could not load image file.", true);
+                    };
+                    img.src = dataUrl;
+                };
+                reader.onerror = () => {
+                    this.showToast("Error reading file.", true);
+                };
+                reader.readAsDataURL(file);
+            }
+
+            handleAuthorFile(file) {
+                if (file && file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            this.state.authorPhoto = img;
+                            this.authorPreviewImg.src = e.target.result;
+                            this.authorPreviewImg.classList.remove('hidden');
+                            this.removeAuthorBtn.classList.remove('hidden');
+                            this.updateAndRender();
+                        };
+                        img.src = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+
+            toggleBrandSheet(show) {
+                if (show) {
+                    this.brandSheetOverlay.classList.remove('hidden');
+                    setTimeout(() => {
+                        this.brandSheetOverlay.classList.remove('opacity-0');
+                        this.brandSheet.classList.remove('translate-y-full');
+                    }, 10);
+                } else {
+                    this.brandSheetOverlay.classList.add('opacity-0');
+                    this.brandSheet.classList.add('translate-y-full');
+                    setTimeout(() => this.brandSheetOverlay.classList.add('hidden'), 300);
+                }
+            }
+
+            /**
+             * Generates a punchy TDS headline from raw article text via Netlify Functions
+             */
+            async generateHeadlineFromText() {
+                const text = this.articleTextInput ? this.articleTextInput.value.trim() : '';
+
+                if (this.textErrorMsg) {
+                    this.textErrorMsg.classList.add('hidden');
+                    this.textErrorMsg.innerText = '';
+                }
+
+                if (!text) {
+                    const msg = 'Please paste the article text first.';
+                    if (this.textErrorMsg) {
+                        this.textErrorMsg.innerText = msg;
+                        this.textErrorMsg.classList.remove('hidden');
+                    }
+                    this.showToast(msg, true);
+                    return;
+                }
+
+                const originalBtnHtml = this.generateHeadlineBtn.innerHTML;
+                this.generateHeadlineBtn.innerText = 'Reading...';
+                this.generateHeadlineBtn.disabled = true;
+
+                try {
+                    const response = await fetch('/.netlify/functions/generate-headline', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ text })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Request failed with status ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    const generatedText = (
+                        data.headline ||
+                        data.title ||
+                        data.text ||
+                        (typeof data === 'string' ? data : '')
+                    ).trim();
+
+                    if (!generatedText) {
+                        throw new Error('No headline returned from generator.');
+                    }
+
+                    // Inject generated headline into Main Headline textarea & trigger Canvas render
+                    this.titleInput.value = generatedText;
+                    this.updateAndRender();
+                    this.showToast('TDS Headline generated!');
+                } catch (error) {
+                    console.error('Headline generation failed:', error);
+                    const errorText = 'Failed to generate headline from text. Please try again or type manually.';
+                    if (this.textErrorMsg) {
+                        this.textErrorMsg.innerText = errorText;
+                        this.textErrorMsg.classList.remove('hidden');
+                    }
+                    this.showToast('Failed to generate headline.', true);
+                } finally {
+                    this.generateHeadlineBtn.innerHTML = originalBtnHtml;
+                    this.generateHeadlineBtn.disabled = false;
+                }
+            }
+
+            /**
+             * Calls the Netlify verification endpoint to evaluate headline credibility
+             */
+            async verifyNewsCredibility(headlineInput) {
+                const headline = (headlineInput !== undefined ? headlineInput : this.titleInput.value).trim();
+                if (!headline) {
+                    this.showToast("Please enter a headline to verify.", true);
+                    return null;
+                }
+
+                // Set loading state and disable button to prevent double-clicks
+                const originalBtnContent = this.verifyBtn.innerHTML;
+                this.verifyBtn.innerText = 'Analyzing...';
+                this.verifyBtn.disabled = true;
+
+                const resetBannerClasses = () => {
+                    this.verificationBanner.classList.remove(
+                        'hidden',
+                        'border-green-500', 'bg-green-50',
+                        'border-yellow-500', 'bg-yellow-50',
+                        'border-orange-500', 'bg-orange-50',
+                        'border-red-500', 'bg-red-50'
+                    );
+                    this.verificationStatus.classList.remove('text-green-700', 'text-yellow-700', 'text-orange-700', 'text-red-700');
+                    this.verificationScore.classList.remove('text-green-600', 'text-yellow-600', 'text-orange-600', 'text-red-600');
+                    this.verificationReasoning.classList.remove('text-green-800', 'text-yellow-800', 'text-orange-800', 'text-red-800');
+                };
+
+                try {
+                    const response = await fetch('/.netlify/functions/verify', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ headline })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Request failed with status ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    const score = Number(data.score);
+                    const reasoning = data.reasoning || '';
+
+                    if (Number.isNaN(score)) {
+                        throw new Error('Invalid score returned from verification endpoint');
+                    }
+
+                    resetBannerClasses();
+                    this.verificationBanner.classList.add('flex');
+                    this.verificationScore.innerText = `${score}%`;
+                    this.verificationReasoning.innerText = reasoning;
+
+                    // Apply color-coded scoring system rules
+                    if (score >= 75) {
+                        this.verificationBanner.classList.add('border-green-500', 'bg-green-50');
+                        this.verificationStatus.classList.add('text-green-700');
+                        this.verificationScore.classList.add('text-green-600');
+                        this.verificationReasoning.classList.add('text-green-800');
+                        this.verificationStatus.innerText = 'Verified / Credible';
+                    } else if (score >= 50) {
+                        this.verificationBanner.classList.add('border-yellow-500', 'bg-yellow-50');
+                        this.verificationStatus.classList.add('text-yellow-700');
+                        this.verificationScore.classList.add('text-yellow-600');
+                        this.verificationReasoning.classList.add('text-yellow-800');
+                        this.verificationStatus.innerText = 'Needs More Sources';
+                    } else if (score >= 25) {
+                        this.verificationBanner.classList.add('border-orange-500', 'bg-orange-50');
+                        this.verificationStatus.classList.add('text-orange-700');
+                        this.verificationScore.classList.add('text-orange-600');
+                        this.verificationReasoning.classList.add('text-orange-800');
+                        this.verificationStatus.innerText = 'Unverified / Questionable';
+                    } else {
+                        this.verificationBanner.classList.add('border-red-500', 'bg-red-50');
+                        this.verificationStatus.classList.add('text-red-700');
+                        this.verificationScore.classList.add('text-red-600');
+                        this.verificationReasoning.classList.add('text-red-800');
+                        this.verificationStatus.innerText = 'Likely False / Disinfo';
+                    }
+
+                    return { score, reasoning };
+                } catch (error) {
+                    console.error('Credibility verification failed:', error);
+                    resetBannerClasses();
+                    this.verificationBanner.classList.add('flex', 'border-red-500', 'bg-red-50');
+                    this.verificationStatus.classList.add('text-red-700');
+                    this.verificationScore.classList.add('text-red-600');
+                    this.verificationReasoning.classList.add('text-red-800');
+                    this.verificationStatus.innerText = 'Verification Error';
+                    this.verificationScore.innerText = '—';
+                    this.verificationReasoning.innerText = 'Verification service unavailable';
+                    return null;
+                } finally {
+                    this.verifyBtn.innerHTML = originalBtnContent;
+                    this.verifyBtn.disabled = false;
+                }
+            }
+
+            init() {
+                // Initialize Inputs
+                this.titleInput.value = this.state.title;
+                this.categoryInput.value = this.state.category;
+                
+                if (this.layoutThemeInput) {
+                    this.layoutThemeInput.value = this.state.layoutTheme;
+                    this.layoutThemeInput.addEventListener('change', (e) => {
+                        this.state.layoutTheme = e.target.value;
+                        this.updateAndRender();
+                    });
+                }
+                
+                if (this.attributionInput) this.attributionInput.value = this.state.attribution;
+                if (this.readTimeInput) this.readTimeInput.value = this.state.readTime;
+                // Load saved brand state if available
+                const hasSavedState = this.storage.load(this.state, () => {
+                    this.syncBrandUI();
+                    this.updateAndRender();
+                });
+                
+                if (!hasSavedState) this.syncBrandUI();
+                
+                this.renderFormatButtons();
+                this.renderToneButtons();
+
+                // Bind AI Raw Article Text-to-Headline Generator
+                if (this.generateHeadlineBtn) {
+                    this.generateHeadlineBtn.addEventListener('click', () => this.generateHeadlineFromText());
+                }
+                if (this.articleTextInput) {
+                    this.articleTextInput.addEventListener('input', () => {
+                        if (this.textErrorMsg) {
+                            this.textErrorMsg.classList.add('hidden');
+                        }
+                    });
+                }
+
+                // Expose global reference for generateHeadlineFromText
+                window.generateHeadlineFromText = () => this.generateHeadlineFromText();
+                window.generateHeadlineFromUrl = () => this.generateHeadlineFromText();
+                window.verifyNewsCredibility = (headline) => this.verifyNewsCredibility(headline);
+
+                // Bind Main Form Events (Retains manual override on Main Headline)
+                this.titleInput.addEventListener('input', () => this.updateAndRender());
+                this.categoryInput.addEventListener('change', () => this.updateAndRender());
+                this.attributionInput.addEventListener('input', () => this.updateAndRender());
+                this.readTimeInput.addEventListener('input', () => this.updateAndRender());
+
+                this.includeQuoteToggle.addEventListener('change', (e) => {
+                    this.state.includeQuote = e.target.checked;
+                    this.quoteDrawer.classList.toggle('hidden', !this.state.includeQuote);
+                    this.quoteDrawer.classList.toggle('flex', this.state.includeQuote);
+                    this.updateAndRender();
+                });
+                
+                this.quoteTextInput.addEventListener('input', (e) => {
+                    this.state.quoteText = e.target.value;
+                    this.updateAndRender();
+                });
+                
+                this.quoteAttributionInput.addEventListener('input', (e) => {
+                    this.state.quoteAttribution = e.target.value;
+                    this.updateAndRender();
+                });
+
+                // Main Image Upload & Clear Bindings
+                this.imageUpload.addEventListener('change', (e) => {
+                    const file = e.target.files && e.target.files[0];
+                    if (file) {
+                        this.handleImageFile(file);
+                    }
+                });
+
+                this.dropzone.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.imageUpload.click();
+                });
+
+                this.dropzone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    this.dropzone.classList.add('border-m3-primary', 'bg-m3-primaryContainer');
+                });
+                
+                this.dropzone.addEventListener('dragleave', (e) => {
+                    e.preventDefault();
+                    this.dropzone.classList.remove('border-m3-primary', 'bg-m3-primaryContainer');
+                });
+                
+                this.dropzone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    this.dropzone.classList.remove('border-m3-primary', 'bg-m3-primaryContainer');
+                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                        this.handleImageFile(e.dataTransfer.files[0]);
+                    }
+                });
+
+                this.removeImageBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.state.backgroundImage = null;
+                    this.imageUpload.value = '';
+                    this.removeImageBtn.classList.add('hidden');
+                    if (this.bgUploadStatus) {
+                        this.bgUploadStatus.innerText = 'Click to upload photo or drag and drop';
+                    }
+                    this.updateAndRender();
+                });
+
+                // Author UI Bindings
+                this.showAuthorToggle.addEventListener('change', (e) => {
+                    this.state.showAuthor = e.target.checked;
+                    this.authorDrawer.classList.toggle('hidden', !this.state.showAuthor);
+                    this.authorDrawer.classList.toggle('flex', this.state.showAuthor);
+                    this.updateAndRender();
+                });
+                
+                this.authorNameInput.addEventListener('input', (e) => {
+                    this.state.authorName = e.target.value;
+                    this.updateAndRender();
+                });
+
+                this.authorUpload.addEventListener('change', (e) => this.handleAuthorFile(e.target.files[0]));
+                this.authorDropzone.addEventListener('click', () => this.authorUpload.click());
+                
+                this.removeAuthorBtn.addEventListener('click', () => {
+                    this.state.authorPhoto = null;
+                    this.authorUpload.value = '';
+                    this.authorPreviewImg.src = '';
+                    this.authorPreviewImg.classList.add('hidden');
+                    this.removeAuthorBtn.classList.add('hidden');
+                    this.updateAndRender();
+                });
+
+                // Logo Alignment Binding
+                if (this.logoAlignmentInput) {
+                    this.logoAlignmentInput.value = this.state.logoAlignment;
+                    this.logoAlignmentInput.addEventListener('change', (e) => {
+                        this.state.logoAlignment = e.target.value;
+                        this.storage.save(this.state);
+                        this.updateAndRender();
+                    });
+                }
+
+                this.toneBtns.forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        this.state.tone = e.target.dataset.tone;
+                        this.renderToneButtons();
+                        this.updateAndRender();
+                    });
+                });
+
+                // Verification Button Listener
+                this.verifyBtn.addEventListener('click', () => {
+                    const headline = this.titleInput.value.trim();
+                    this.verifyNewsCredibility(headline);
+                });
+
+                if (this.brandBtn) this.brandBtn.addEventListener('click', () => this.toggleBrandSheet(true));
+                if (this.closeBrandBtn) this.closeBrandBtn.addEventListener('click', () => this.toggleBrandSheet(false));
+                if (this.brandSheetOverlay) this.brandSheetOverlay.addEventListener('click', () => this.toggleBrandSheet(false));
+
+                if (this.primaryColorInput) {
+                    this.primaryColorInput.addEventListener('input', (e) => {
+                        this.state.brand.primaryColor = e.target.value;
+                        this.storage.save(this.state);
+                        this.updateAndRender();
+                    });
+                }
+                if (this.secondaryColorInput) {
+                    this.secondaryColorInput.addEventListener('input', (e) => {
+                        this.state.brand.secondaryColor = e.target.value;
+                        this.state.theme.bgBase = e.target.value;
+                        this.storage.save(this.state);
+                        this.updateAndRender();
+                    });
+                }
+
+                if (this.batchExportBtn) {
+                    this.batchExportBtn.addEventListener('click', () => {
+                        this.batchExporter.exportAll(this.state, this.engine, (msg) => this.showToast(msg));
+                    });
+                }
+
+                const handleReset = () => {
+                    this.titleInput.value = '';
+                    if (this.articleTextInput) this.articleTextInput.value = '';
+                    this.state.backgroundImage = null;
+                    this.imageUpload.value = '';
+                    this.removeImageBtn.classList.add('hidden');
+                    if (this.bgUploadStatus) this.bgUploadStatus.innerText = 'Click to upload photo or drag and drop';
+                    this.verificationBanner.classList.add('hidden');
+                    this.updateAndRender();
+                    this.showToast('Canvas reset');
+                };
+
+                if (this.resetBtn) this.resetBtn.addEventListener('click', handleReset);
+                if (this.bottomResetBtn) this.bottomResetBtn.addEventListener('click', handleReset);
+
+                if (this.copyBtn) {
+                    this.copyBtn.addEventListener('click', () => {
+                        this.engine.canvas.toBlob(async (blob) => {
+                            try {
+                                await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                                this.showToast('Photocard copied to clipboard!');
+                            } catch (err) {
+                                this.showToast('Clipboard copy not supported in this view.', true);
+                            }
+                        });
+                    });
+                }
+
+                this.downloadBtn.addEventListener('click', async () => {
+                    const originalContent = this.downloadBtn.innerHTML;
+                    this.downloadBtn.innerHTML = "Processing...";
+                    
+                    try {
+                        const dataUrl = this.engine.export();
+                        
+                        const portalName = (this.state.brand.watermark || 'portal').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                        const cat = (this.state.category || 'news').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                        const fileName = `${portalName}-${cat}.png`;
+
+                        const link = document.createElement('a');
+                        link.download = fileName;
+                        link.href = dataUrl;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        
+                        this.downloadBtn.innerHTML = "Saved!";
+                    } catch (error) {
+                        console.error('Download failed:', error);
+                        this.showToast("Export failed.", true);
+                        this.downloadBtn.innerHTML = "Failed";
+                    }
+                    
+                    setTimeout(() => this.downloadBtn.innerHTML = originalContent, 2000);
+                });
+
+                this.updateAndRender();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const engine = new CanvasEngine('photocard-canvas');
+            const ui = new UIController(AppState, engine, BrandStorage, BatchExporter);
+
+            // Wait for './TDS Logo no background.png' and Google Fonts before initial draw
+            await Promise.all([
+                preloadTDSLogo(),
+                document.fonts ? document.fonts.ready : Promise.resolve()
+            ]);
+
+            ui.init();
+        });
+    </script>
+</body>
+</html>
