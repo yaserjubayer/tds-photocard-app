@@ -659,68 +659,33 @@
             }
 
             /**
-             * Wraps text line-by-line while checking if each line's Y-coordinate space
-             * intersects with the brand logo's bounding box. If a collision is detected,
-             * the line's available maxWidth is reduced by (logoBox.width + 40px padding).
+             * Wraps multi-line text across the full available canvas width (width - paddingX * 2)
+             * without lateral logo indentation, since text is strictly positioned inside the vertical Safe Zone.
              */
-            wrapTextWithLogoCollision(text, startY, lineHeight, baseX, baseMaxWidth, logoBox) {
+            wrapTextFullWidth(text, baseX, maxWidth) {
                 const rawText = (text || '').trim();
                 if (!rawText) return [];
 
                 const paragraphs = rawText.split(/\r?\n/);
                 const lines = [];
-                let lineIndex = 0;
-                const horizontalLogoPadding = 40;
-                const verticalSafetyBuffer = 12;
-
-                const getLineBounds = (idx) => {
-                    const lineTopY = startY + (idx * lineHeight);
-                    const lineBottomY = lineTopY + lineHeight;
-                    const intersectsLogoY = logoBox && (
-                        lineBottomY >= (logoBox.y - verticalSafetyBuffer) &&
-                        lineTopY <= (logoBox.y + logoBox.height + verticalSafetyBuffer)
-                    );
-
-                    let lineX = baseX;
-                    let maxWidth = baseMaxWidth;
-
-                    if (intersectsLogoY) {
-                        if (logoBox.quadrant === 'top-left' || logoBox.quadrant === 'bottom-left') {
-                            const shiftedX = logoBox.x + logoBox.width + horizontalLogoPadding;
-                            const shiftAmount = Math.max(0, shiftedX - baseX);
-                            lineX = baseX + shiftAmount;
-                            maxWidth = Math.max(120, baseMaxWidth - shiftAmount);
-                        } else {
-                            // Logo is on the right side: reduce maxWidth so text wraps 40px before logo
-                            const availableRightEdge = logoBox.x - horizontalLogoPadding;
-                            maxWidth = Math.max(120, Math.min(baseMaxWidth, availableRightEdge - baseX));
-                        }
-                    }
-
-                    return { lineX, maxWidth, lineTopY };
-                };
 
                 for (let p = 0; p < paragraphs.length; p++) {
                     const words = paragraphs[p].trim().split(/\s+/).filter(Boolean);
                     if (words.length === 0) continue;
 
                     let currentLine = '';
-                    let currentBounds = getLineBounds(lineIndex);
 
                     for (let n = 0; n < words.length; n++) {
                         const word = words[n];
                         const testLine = currentLine ? `${currentLine} ${word}` : word;
                         const metrics = this.ctx.measureText(testLine);
 
-                        if (metrics.width > currentBounds.maxWidth && currentLine !== '') {
+                        if (metrics.width > maxWidth && currentLine !== '') {
                             lines.push({
                                 text: currentLine.trim(),
-                                x: currentBounds.lineX,
-                                y: currentBounds.lineTopY,
-                                maxWidth: currentBounds.maxWidth
+                                x: baseX,
+                                maxWidth
                             });
-                            lineIndex++;
-                            currentBounds = getLineBounds(lineIndex);
                             currentLine = word;
                         } else {
                             currentLine = testLine;
@@ -730,11 +695,9 @@
                     if (currentLine) {
                         lines.push({
                             text: currentLine.trim(),
-                            x: currentBounds.lineX,
-                            y: currentBounds.lineTopY,
-                            maxWidth: currentBounds.maxWidth
+                            x: baseX,
+                            maxWidth
                         });
-                        lineIndex++;
                     }
                 }
 
@@ -806,30 +769,38 @@
             }
 
             /**
-             * Calculates the exact layout metrics and bounding boxes (X, Y, width, height)
-             * for the Headline, Quotes, and Author layers prior to drawing.
-             * Includes a while-loop auto-fit scaler that steps down font sizes by 2px until
-             * the entire content stack fits between the top badge and footer without touching the logo.
+             * Defines strict Header, Footer, and Safe Zones, performs a dry-run height calculation
+             * with recursive auto-fit font scaling, and vertically centers the combined text block
+             * within the Safe Zone.
              */
             calculateLayoutAndBoundingBoxes(state, format) {
                 const { width, height, padding } = format;
+                const paddingX = padding;
+                const contentMaxWidth = width - (paddingX * 2);
                 const footerLayout = this.getFooterLayout(format);
-                const footerClearance = padding + footerLayout.footerHeight + 28;
-                const bottomSafeY = height - footerClearance;
-                const contentMaxWidth = width - (padding * 2);
 
-                // Estimate bottom-left text occupancy so 'auto' placement picks the optimal quadrant (top-right)
-                const roughOccupiedBox = [{
-                    x: padding,
-                    y: Math.round(height * 0.35),
-                    width: contentMaxWidth * 0.75,
-                    height: Math.round(height * 0.55)
+                // Reserve the middle canvas area so 'auto' logo placement cleanly selects the top-left header corner
+                const safeZoneReservation = [{
+                    x: paddingX,
+                    y: Math.round(height * 0.24),
+                    width: contentMaxWidth,
+                    height: Math.round(height * 0.62)
                 }];
-                const { logoBox, badgeBox } = this.getLogoAndBadgeBoxes(state, format, roughOccupiedBox);
+                const { logoBox, badgeBox } = this.getLogoAndBadgeBoxes(state, format, safeZoneReservation);
 
-                // Top boundary of safe area sits below the Category Badge
-                const topSafeY = badgeBox.y + badgeBox.height + 24;
-                const availableSafeHeight = Math.max(200, bottomSafeY - topSafeY);
+                // 1. Define Strict Vertical Zones
+                const isLogoInHeader = (logoBox.quadrant === 'top-left' || logoBox.quadrant === 'top-right');
+                const isLogoInFooter = (logoBox.quadrant === 'bottom-left' || logoBox.quadrant === 'bottom-right');
+
+                const logoBottom = isLogoInHeader ? (logoBox.y + logoBox.height) : 0;
+                const badgeBottom = badgeBox.y + badgeBox.height;
+                const headerBottomY = Math.max(logoBottom, badgeBottom) + Math.round(padding * 0.65);
+
+                const footerDividerY = height - padding - footerLayout.footerHeight;
+                const bottomBoundaryY = isLogoInFooter ? Math.min(footerDividerY, logoBox.y) : footerDividerY;
+                const footerTopY = bottomBoundaryY - Math.round(padding * 0.65);
+
+                const safeZoneHeight = Math.max(140, footerTopY - headerBottomY);
 
                 const isQuoteFocus = state.layoutTheme === 'quote' && state.includeQuote;
                 const hasQuote = Boolean(state.includeQuote && (state.quoteText || isQuoteFocus));
@@ -846,192 +817,201 @@
 
                 const initialPrimarySize = isQuoteFocus ? baseQSize : baseHlSize;
                 let currentPrimarySize = initialPrimarySize;
-                const minPrimarySize = 24;
+                const minPrimarySize = 22;
 
                 /**
-                 * Helper that computes the complete Y-aware, logo-collision-wrapped layout
-                 * for a specific scale step.
+                 * Dry-run calculation of relative positions and totalTextHeight for a given font scale
                  */
-                const buildLayoutForScale = (scaleRatio) => {
-                    const hlFontSize = Math.max(20, Math.round(baseHlSize * scaleRatio));
-                    const qFontSize = Math.max(20, Math.round(baseQSize * scaleRatio));
-                    const authorFontSize = Math.max(18, Math.round(baseAuthorSize * Math.max(0.75, scaleRatio)));
+                const buildDryRunLayout = (scaleRatio) => {
+                    const hlFontSize = Math.max(18, Math.round(baseHlSize * scaleRatio));
+                    const qFontSize = Math.max(18, Math.round(baseQSize * scaleRatio));
+                    const authorFontSize = Math.max(16, Math.round(baseAuthorSize * Math.max(0.75, scaleRatio)));
 
                     const hlLineHeight = Math.round(hlFontSize * (isQuoteFocus ? 1.24 : 1.15));
                     const qLineHeight = Math.round(qFontSize * 1.32);
 
-                    let textBottomY = bottomSafeY;
+                    let relativeY = 0;
+                    let quoteBox = null;
+                    let hlBox = null;
                     let authorBox = null;
 
-                    // 1. Author Layer (anchored at bottom of safe area)
+                    // 1. Quote Layer (Dry Run)
+                    if (hasQuote) {
+                        const qText = isQuoteFocus
+                            ? (state.quoteText || "Enter your editorial quote...")
+                            : state.quoteText;
+                        const quoteIndent = isQuoteFocus ? 0 : Math.round(qFontSize * 0.95);
+                        const markSize = isQuoteFocus
+                            ? Math.round(qFontSize * 2.0)
+                            : Math.round(qFontSize * 2.4);
+                        const markTopClearance = isQuoteFocus
+                            ? Math.round(markSize * 0.45)
+                            : Math.round(qFontSize * 0.45);
+
+                        this.ctx.font = `italic 700 ${qFontSize}px "Playfair Display"`;
+                        const rawQLines = this.wrapTextFullWidth(
+                            qText,
+                            paddingX + quoteIndent,
+                            contentMaxWidth - quoteIndent
+                        );
+
+                        const totalQHeight = rawQLines.length * qLineHeight;
+                        const attrExtraHeight = state.quoteAttribution
+                            ? Math.round(qFontSize * (isQuoteFocus ? 0.65 : 0.85))
+                            : 0;
+                        const maxQLineWidth = rawQLines.reduce(
+                            (max, l) => Math.max(max, this.ctx.measureText(l.text).width),
+                            0
+                        );
+
+                        quoteBox = {
+                            type: 'quote',
+                            x: paddingX,
+                            relY: relativeY,
+                            relQuoteStartY: relativeY + markTopClearance,
+                            width: Math.min(contentMaxWidth, maxQLineWidth + quoteIndent),
+                            height: markTopClearance + totalQHeight + attrExtraHeight,
+                            rawLines: rawQLines,
+                            fontSize: qFontSize,
+                            lineHeight: qLineHeight,
+                            markSize,
+                            quoteIndent,
+                            totalQHeight,
+                            isQuoteFocus
+                        };
+
+                        relativeY += quoteBox.height + (hasHeadline ? Math.round(hlFontSize * 0.55) : 0);
+                    }
+
+                    // 2. Headline Layer (Dry Run)
+                    if (hasHeadline) {
+                        const rawHl = (state.title || "YOUR HEADLINE APPEARS HERE").toUpperCase();
+                        this.ctx.font = `700 ${hlFontSize}px "Oswald"`;
+
+                        const rawHlLines = this.wrapTextFullWidth(
+                            rawHl,
+                            paddingX,
+                            contentMaxWidth
+                        );
+
+                        const totalHlHeight = rawHlLines.length * hlLineHeight;
+                        const maxHlLineWidth = rawHlLines.reduce(
+                            (max, l) => Math.max(max, this.ctx.measureText(l.text).width),
+                            0
+                        );
+
+                        hlBox = {
+                            type: 'headline',
+                            x: paddingX,
+                            relY: relativeY,
+                            width: Math.min(contentMaxWidth, maxHlLineWidth),
+                            height: totalHlHeight,
+                            rawLines: rawHlLines,
+                            fontSize: hlFontSize,
+                            lineHeight: hlLineHeight
+                        };
+
+                        relativeY += totalHlHeight;
+                    }
+
+                    // 3. Author Layer (Dry Run)
                     if (state.showAuthor && state.authorName) {
                         const blockHeight = Math.round(authorFontSize * 2.0);
-                        const authorY = bottomSafeY - blockHeight;
+                        const authorRelY = relativeY + 28;
 
                         this.ctx.font = `600 ${authorFontSize}px "Inter"`;
                         const nameWidth = this.ctx.measureText(state.authorName).width;
                         const avatarOffset = state.authorPhoto ? (authorFontSize * 2) + 15 : 0;
 
-                        let authorX = padding;
-                        if (
-                            logoBox &&
-                            logoBox.quadrant === 'bottom-left' &&
-                            authorY + blockHeight >= logoBox.y - 12 &&
-                            authorY <= logoBox.y + logoBox.height + 12
-                        ) {
-                            authorX = Math.max(padding, logoBox.x + logoBox.width + 40);
-                        }
-
                         authorBox = {
                             type: 'author',
-                            x: authorX,
-                            y: authorY,
+                            x: paddingX,
+                            relY: authorRelY,
                             width: Math.min(contentMaxWidth, avatarOffset + nameWidth),
                             height: blockHeight,
                             fontSize: authorFontSize
                         };
 
-                        textBottomY = authorY - 22;
+                        relativeY = authorRelY + blockHeight;
                     }
-
-                    // 2. Converge exact Y positions & wrap lines around logoBox
-                    let candidateTopY = topSafeY;
-                    let quoteBox = null;
-                    let hlBox = null;
-                    let textStackHeight = 0;
-
-                    for (let pass = 0; pass < 3; pass++) {
-                        let cursorY = candidateTopY;
-                        quoteBox = null;
-                        hlBox = null;
-
-                        if (hasQuote) {
-                            const qText = isQuoteFocus
-                                ? (state.quoteText || "Enter your editorial quote...")
-                                : state.quoteText;
-                            const quoteIndent = isQuoteFocus ? 0 : Math.round(qFontSize * 0.95);
-                            const markSize = isQuoteFocus
-                                ? Math.round(qFontSize * 2.0)
-                                : Math.round(qFontSize * 2.4);
-                            const markTopClearance = isQuoteFocus
-                                ? Math.round(qFontSize * 0.88)
-                                : Math.round(qFontSize * 0.45);
-
-                            const quoteStartY = cursorY + markTopClearance;
-                            this.ctx.font = `italic 700 ${qFontSize}px "Playfair Display"`;
-
-                            const qLines = this.wrapTextWithLogoCollision(
-                                qText,
-                                quoteStartY,
-                                qLineHeight,
-                                padding + quoteIndent,
-                                contentMaxWidth - quoteIndent,
-                                logoBox
-                            );
-
-                            const totalQHeight = qLines.length * qLineHeight;
-                            const attrExtraHeight = state.quoteAttribution
-                                ? Math.round(qFontSize * (isQuoteFocus ? 0.65 : 0.85))
-                                : 0;
-                            const maxQLineWidth = qLines.reduce(
-                                (max, l) => Math.max(max, this.ctx.measureText(l.text).width),
-                                0
-                            );
-
-                            quoteBox = {
-                                type: 'quote',
-                                x: padding,
-                                y: cursorY,
-                                width: Math.min(contentMaxWidth, maxQLineWidth + quoteIndent),
-                                height: markTopClearance + totalQHeight + attrExtraHeight,
-                                quoteStartY,
-                                lines: qLines,
-                                fontSize: qFontSize,
-                                lineHeight: qLineHeight,
-                                markSize,
-                                quoteIndent,
-                                totalQHeight,
-                                isQuoteFocus
-                            };
-
-                            cursorY += quoteBox.height + (hasHeadline ? Math.round(hlFontSize * 0.55) : 0);
-                        }
-
-                        if (hasHeadline) {
-                            const rawHl = (state.title || "YOUR HEADLINE APPEARS HERE").toUpperCase();
-                            const hlStartY = cursorY;
-                            this.ctx.font = `700 ${hlFontSize}px "Oswald"`;
-
-                            const hlLines = this.wrapTextWithLogoCollision(
-                                rawHl,
-                                hlStartY,
-                                hlLineHeight,
-                                padding,
-                                contentMaxWidth,
-                                logoBox
-                            );
-
-                            const totalHlHeight = hlLines.length * hlLineHeight;
-                            const maxHlLineWidth = hlLines.reduce(
-                                (max, l) => Math.max(max, this.ctx.measureText(l.text).width),
-                                0
-                            );
-
-                            hlBox = {
-                                type: 'headline',
-                                x: padding,
-                                y: hlStartY,
-                                width: Math.min(contentMaxWidth, maxHlLineWidth),
-                                height: totalHlHeight,
-                                lines: hlLines,
-                                fontSize: hlFontSize,
-                                lineHeight: hlLineHeight
-                            };
-
-                            cursorY += totalHlHeight;
-                        }
-
-                        textStackHeight = cursorY - candidateTopY;
-                        // Anchor bottom of text stack to textBottomY while clamping to topSafeY during overflow check
-                        candidateTopY = Math.max(topSafeY, textBottomY - textStackHeight);
-                    }
-
-                    const authorTotalHeight = authorBox ? (authorBox.height + 22) : 0;
-                    const totalRequiredHeight = textStackHeight + authorTotalHeight;
 
                     return {
                         author: authorBox,
                         headline: hlBox,
                         quote: quoteBox,
-                        totalRequiredHeight
+                        totalTextHeight: relativeY
                     };
                 };
 
-                // Dynamic Font Scaling Loop: step down by 2px until total height fits the safe area
-                let currentLayout = buildLayoutForScale(1);
+                // 2. Auto-Fit Scaling Loop: shrink font size by 2px if totalTextHeight > safeZoneHeight
+                let dryRun = buildDryRunLayout(1);
 
                 while (currentPrimarySize > minPrimarySize) {
-                    const exceedsSafeHeight = currentLayout.totalRequiredHeight > availableSafeHeight;
+                    const exceedsSafeZone = dryRun.totalTextHeight > safeZoneHeight;
                     const standardHeadlineTooTall = !hasQuote &&
-                        currentLayout.headline &&
-                        currentLayout.headline.lines.length > 5 &&
-                        currentLayout.headline.fontSize > Math.round(format.fontSize * 0.55);
+                        dryRun.headline &&
+                        dryRun.headline.rawLines.length > 5 &&
+                        dryRun.headline.fontSize > Math.round(format.fontSize * 0.55);
 
-                    if (!exceedsSafeHeight && !standardHeadlineTooTall) {
+                    if (!exceedsSafeZone && !standardHeadlineTooTall) {
                         break;
                     }
 
                     currentPrimarySize -= 2;
                     const scaleRatio = currentPrimarySize / initialPrimarySize;
-                    currentLayout = buildLayoutForScale(scaleRatio);
+                    dryRun = buildDryRunLayout(scaleRatio);
                 }
 
-                const boxes = [];
-                if (currentLayout.quote) boxes.push(currentLayout.quote);
-                if (currentLayout.headline) boxes.push(currentLayout.headline);
-                if (currentLayout.author) boxes.push(currentLayout.author);
+                // 3. Vertically Center the Text Block inside the Safe Zone
+                const startY = headerBottomY + Math.max(0, Math.round((safeZoneHeight - dryRun.totalTextHeight) / 2));
 
-                let combinedBounds = { x: padding, y: bottomSafeY, width: 0, height: 0 };
+                const boxes = [];
+                let finalQuote = null;
+                let finalHeadline = null;
+                let finalAuthor = null;
+
+                if (dryRun.quote) {
+                    const quoteStartY = startY + dryRun.quote.relQuoteStartY;
+                    const positionedLines = dryRun.quote.rawLines.map((line, idx) => ({
+                        text: line.text,
+                        x: line.x,
+                        y: quoteStartY + (idx * dryRun.quote.lineHeight),
+                        maxWidth: line.maxWidth
+                    }));
+                    finalQuote = {
+                        ...dryRun.quote,
+                        y: startY + dryRun.quote.relY,
+                        quoteStartY,
+                        lines: positionedLines
+                    };
+                    boxes.push(finalQuote);
+                }
+
+                if (dryRun.headline) {
+                    const hlStartY = startY + dryRun.headline.relY;
+                    const positionedLines = dryRun.headline.rawLines.map((line, idx) => ({
+                        text: line.text,
+                        x: line.x,
+                        y: hlStartY + (idx * dryRun.headline.lineHeight),
+                        maxWidth: line.maxWidth
+                    }));
+                    finalHeadline = {
+                        ...dryRun.headline,
+                        y: hlStartY,
+                        lines: positionedLines
+                    };
+                    boxes.push(finalHeadline);
+                }
+
+                if (dryRun.author) {
+                    finalAuthor = {
+                        ...dryRun.author,
+                        y: startY + dryRun.author.relY
+                    };
+                    boxes.push(finalAuthor);
+                }
+
+                let combinedBounds = { x: paddingX, y: startY, width: 0, height: dryRun.totalTextHeight };
                 if (boxes.length > 0) {
                     const minX = Math.min(...boxes.map(b => b.x));
                     const minY = Math.min(...boxes.map(b => b.y));
@@ -1046,9 +1026,9 @@
                 }
 
                 return {
-                    author: currentLayout.author,
-                    headline: currentLayout.headline,
-                    quote: currentLayout.quote,
+                    author: finalAuthor,
+                    headline: finalHeadline,
+                    quote: finalQuote,
                     logoBox,
                     badgeBox,
                     boxes,
