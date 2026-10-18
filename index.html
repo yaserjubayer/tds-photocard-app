@@ -204,20 +204,20 @@
                     <label for="category-input" class="text-sm font-semibold text-m3-secondary px-1">Category / Desk</label>
                     <div class="relative">
                         <select id="category-input" class="w-full appearance-none bg-white border border-m3-outline rounded-xl px-4 py-3.5 text-m3-onSurface focus:outline-none focus:border-m3-primary focus:ring-1 focus:ring-m3-primary transition-all">
-                            <option value="Politics Desk">Politics Desk</option>
-                            <option value="General Desk" selected>General Desk</option>
-                            <option value="Sports Desk">Sports Desk</option>
-                            <option value="Law and Justice Desk">Law and Justice Desk</option>
-                            <option value="Tech and AI Desk">Tech and AI Desk</option>
-                            <option value="Religion and Peace Desk">Religion and Peace Desk</option>
-                            <option value="Human Rights Desk">Human Rights Desk</option>
-                            <option value="International Affairs">International Affairs</option>
-                            <option value="Literature and Philosophy Desk">Literature and Philosophy Desk</option>
-                            <option value="Health and Wellness Desk">Health and Wellness Desk</option>
-                            <option value="Culture and Dhaka Desk">Culture and Dhaka Desk</option>
-                            <option value="Entertainment Desk">Entertainment Desk</option>
-                            <option value="Women and Beauty Desk">Women and Beauty Desk</option>
-                            <option value="Comics and Satire Desk">Comics and Satire Desk</option>
+                            <option value="POLITICS">Politics Desk</option>
+                            <option value="GENERAL" selected>General Desk</option>
+                            <option value="SPORTS">Sports Desk</option>
+                            <option value="LAW & JUSTICE">Law and Justice Desk</option>
+                            <option value="TECH & AI">Tech and AI Desk</option>
+                            <option value="RELIGION & PEACE">Religion and Peace Desk</option>
+                            <option value="HUMAN RIGHTS">Human Rights Desk</option>
+                            <option value="INTERNATIONAL AFFAIRS">International Affairs</option>
+                            <option value="LITERATURE & PHILOSOPHY">Literature and Philosophy Desk</option>
+                            <option value="HEALTH & WELLNESS">Health and Wellness Desk</option>
+                            <option value="CULTURE & DHAKA">Culture and Dhaka Desk</option>
+                            <option value="ENTERTAINMENT">Entertainment Desk</option>
+                            <option value="WOMEN & BEAUTY">Women and Beauty Desk</option>
+                            <option value="COMICS & SATIRE">Comics and Satire Desk</option>
                         </select>
                         <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-m3-outline">
                             <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
@@ -437,7 +437,7 @@
          */
         const AppState = {
             title: "Hasina Card and Friendship Are Contradictory, Says Home Minister to India",
-            category: "General Desk",
+            category: "GENERAL",
             preset: "standard",
             scrimIntensity: "standard",
             headlineWeight: "700",
@@ -782,7 +782,8 @@
                     height: logoHeight + (pillPadY * 2)
                 };
 
-                const categoryText = (state.category || "General Desk").toUpperCase();
+                const rawCategory = state.category || "GENERAL";
+                const cleanCategoryText = rawCategory.replace(/\s+desk$/i, '').trim().toUpperCase() || "GENERAL";
                 const badgePaddingX = 20;
                 const badgePaddingY = 12;
                 const logoCollisionGap = 30;
@@ -800,13 +801,13 @@
                 }
 
                 this.ctx.font = `700 ${badgeFontSize}px "Inter"`;
-                let badgeWidth = this.ctx.measureText(categoryText).width + (badgePaddingX * 2);
+                let badgeWidth = this.ctx.measureText(cleanCategoryText).width + (badgePaddingX * 2);
 
                 // Collision Safeguard: step down badge font size if badge comes within 30px of the TDS Logo
                 while (badgeWidth > maxAllowedBadgeWidth && badgeFontSize > minBadgeFontSize) {
                     badgeFontSize -= 1;
                     this.ctx.font = `700 ${badgeFontSize}px "Inter"`;
-                    badgeWidth = this.ctx.measureText(categoryText).width + (badgePaddingX * 2);
+                    badgeWidth = this.ctx.measureText(cleanCategoryText).width + (badgePaddingX * 2);
                 }
 
                 const badgeHeight = badgeFontSize + (badgePaddingY * 2);
@@ -816,7 +817,7 @@
                 const badgeY = padding;
 
                 const badgeBox = {
-                    text: categoryText,
+                    text: cleanCategoryText,
                     fontSize: badgeFontSize,
                     paddingX: badgePaddingX,
                     paddingY: badgePaddingY,
@@ -1298,12 +1299,13 @@
                     this.ctx.restore();
                 }
 
-                // Category Badge (Dynamically sized via ctx.measureText + collision-safe font size)
-                const categoryText = (state.category || "General Desk").toUpperCase();
+                // Category Badge (Sanitized so 'Desk' never renders on the canvas badge)
+                const rawCategory = state.category || "GENERAL";
+                const cleanCategoryText = rawCategory.replace(/\s+desk$/i, '').trim().toUpperCase() || "GENERAL";
                 const badgePaddingX = badgeBox.paddingX || 20;
                 const badgeColor = state.brand.primaryColor;
                 this.ctx.font = `700 ${badgeBox.fontSize}px "Inter"`;
-                const dynamicBadgeWidth = this.ctx.measureText(categoryText).width + (badgePaddingX * 2);
+                const dynamicBadgeWidth = this.ctx.measureText(cleanCategoryText).width + (badgePaddingX * 2);
                 const dynamicBadgeX = placement.quadrant === 'top-right'
                     ? format.padding
                     : format.width - format.padding - dynamicBadgeWidth;
@@ -1315,7 +1317,7 @@
                 this.ctx.textAlign = "center";
                 this.ctx.textBaseline = "middle";
                 this.ctx.fillText(
-                    categoryText,
+                    cleanCategoryText,
                     dynamicBadgeX + (dynamicBadgeWidth / 2),
                     badgeBox.y + (badgeBox.height / 2) + 2
                 );
@@ -1744,7 +1746,7 @@
             updateAndRender() {
                 this.state.title = this.titleInput.value;
                 if (!this.state.category) {
-                    this.state.category = this.categoryInput.value || 'General Desk';
+                    this.state.category = this.categoryInput.value || 'GENERAL';
                 }
                 this.state.attribution = this.attributionInput.value;
                 this.state.readTime = this.readTimeInput.value;
@@ -1875,9 +1877,9 @@
                         this.quoteAttributionInput.value = this.state.quoteAttribution;
                     }
                 } else {
-                    // 1. Reset internal state to Standard TDS Layout (resets Category to General Desk)
+                    // 1. Reset internal state to Standard TDS Layout (resets Category to General Desk -> GENERAL)
                     this.state.preset = 'standard';
-                    this.state.category = 'General Desk';
+                    this.state.category = 'GENERAL';
                     this.state.brand.primaryColor = '#a31f24';
                     this.state.scrimIntensity = 'standard';
                     this.state.headlineWeight = '700';
@@ -1886,7 +1888,7 @@
                     this.state.tone = 'standard';
 
                     // 2. Physically update visible HTML form inputs
-                    if (this.categoryInput) this.categoryInput.value = 'General Desk';
+                    if (this.categoryInput) this.categoryInput.value = 'GENERAL';
                     if (this.primaryColorInput) this.primaryColorInput.value = '#a31f24';
                     if (this.layoutThemeInput) this.layoutThemeInput.value = 'standard';
                     if (this.includeQuoteToggle) this.includeQuoteToggle.checked = false;
@@ -2009,10 +2011,12 @@
 
                 try {
                     if (!apiKey) {
-                        throw new Error('Missing Gemini API Key. Please enter a valid Gemini API key above.');
+                        const keyMissingError = new Error('Missing Gemini API Key. Please enter a valid Gemini API key above.');
+                        keyMissingError.isAuthError = true;
+                        throw keyMissingError;
                     }
 
-                    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
+                    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
                     const prompt = [
                         'You are the Chief Sub-Editor at The Dhaka Standard (TDS).',
                         'Read the following news article excerpt and write ONE punchy, high-impact journalistic headline (maximum 14 words).',
@@ -2024,13 +2028,11 @@
                     ].join('\n');
 
                     const payload = {
-                        contents: [
-                            {
-                                parts: [
-                                    { text: prompt }
-                                ]
-                            }
-                        ]
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: {
+                            temperature: 0.4,
+                            maxOutputTokens: 120
+                        }
                     };
 
                     const response = await fetch(endpoint, {
@@ -2041,20 +2043,36 @@
                         body: JSON.stringify(payload)
                     });
 
-                    const data = await response.json().catch(() => ({}));
+                    let data = {};
+                    try {
+                        data = await response.json();
+                    } catch (_) {
+                        // Ignore JSON parse error on non-JSON response
+                    }
 
                     if (!response.ok || data.error) {
-                        const apiErrorMessage = data?.error?.message || `Gemini API request failed with status ${response.status}`;
-                        throw new Error(apiErrorMessage);
+                        const apiErrorDetail = data?.error?.message || `Gemini API request failed with status ${response.status}`;
+                        if (response.status === 400 || response.status === 401 || response.status === 403 || /api key|key not valid|permission|unauthenticated/i.test(apiErrorDetail)) {
+                            const authErr = new Error(apiErrorDetail);
+                            authErr.isAuthError = true;
+                            throw authErr;
+                        }
+                        throw new Error(apiErrorDetail);
                     }
 
                     const rawCandidateText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-                    const generatedText = typeof rawCandidateText === 'string'
-                        ? rawCandidateText.trim().replace(/^["'“”]+|["'“”]+$/g, '').trim()
-                        : '';
+                    const candidateText = typeof rawCandidateText === 'string' ? rawCandidateText.trim() : '';
+
+                    const generatedText = (
+                        candidateText ||
+                        data.headline ||
+                        data.title ||
+                        data.text ||
+                        ''
+                    ).replace(/^["'“”]+|["'“”]+$/g, '').trim();
 
                     if (!generatedText) {
-                        throw new Error('No headline text was returned by models/gemini-3.8-flash.');
+                        throw new Error('No headline text was returned by the Gemini API.');
                     }
 
                     // Inject generated headline into Main Headline textarea & trigger Canvas render
@@ -2063,13 +2081,21 @@
                     this.showToast('TDS Headline generated!');
                 } catch (error) {
                     console.error('Headline generation failed:', error.message || error);
-                    const errorMessage = error?.message || 'Failed to reach Gemini API. Please check your connection.';
+
+                    const isKeyIssue = Boolean(
+                        error.isAuthError ||
+                        /api key|missing gemini api key|unauthorized|401|403/i.test(error.message || '')
+                    );
+
+                    const userMessage = isKeyIssue
+                        ? `API Key Error: ${error.message}`
+                        : `API Error: ${error.message || 'Failed to reach Gemini API. Please check your connection.'}`;
 
                     if (this.textErrorMsg) {
-                        this.textErrorMsg.innerText = errorMessage;
+                        this.textErrorMsg.innerText = userMessage;
                         this.textErrorMsg.classList.remove('hidden');
                     }
-                    this.showToast(errorMessage, true);
+                    this.showToast(error.message || 'Failed to generate headline.', true);
                 } finally {
                     this.generateHeadlineBtn.innerHTML = originalBtnHtml;
                     this.generateHeadlineBtn.disabled = false;
@@ -2077,7 +2103,7 @@
             }
 
             /**
-             * Evaluates headline credibility using Gemini 3.8 Flash (with Netlify function fallback if no key is set)
+             * Evaluates headline credibility using Gemini 3.8 Flash (or Netlify fallback)
              */
             async verifyNewsCredibility(headlineInput) {
                 const headline = (headlineInput !== undefined ? headlineInput : this.titleInput.value).trim();
@@ -2110,64 +2136,61 @@
                     const apiKey = inputKey || storedKey || window.GEMINI_API_KEY || '';
 
                     let score;
-                    let reasoning = '';
+                    let reasoning;
 
                     if (apiKey) {
-                        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
+                        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
                         const prompt = [
-                            'You are an editorial fact-checker at The Dhaka Standard (TDS).',
-                            'Evaluate the following news headline against journalistic credibility standards (neutrality, plausibility, absence of clickbait/sensationalism, and factual tone).',
-                            'Respond ONLY with a valid JSON object in this exact format: {"score": 85, "reasoning": "One concise sentence explaining the score."}',
-                            '',
+                            'You are a senior fact-checker at The Dhaka Standard.',
+                            'Analyze the following news headline for journalistic neutrality, plausibility, and sensationalism.',
+                            'Respond ONLY with a valid JSON object matching this exact structure: {"score": 85, "reasoning": "Brief 1-sentence editorial assessment."}',
                             `Headline: ${headline}`
                         ].join('\n');
 
                         const response = await fetch(endpoint, {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
+                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 contents: [{ parts: [{ text: prompt }] }]
                             })
                         });
 
-                        const data = await response.json().catch(() => ({}));
+                        let data = {};
+                        try {
+                            data = await response.json();
+                        } catch (_) {}
 
                         if (!response.ok || data.error) {
-                            const apiErrorMessage = data?.error?.message || `Verification API failed with status ${response.status}`;
-                            throw new Error(apiErrorMessage);
+                            throw new Error(data?.error?.message || `Verification failed with status ${response.status}`);
                         }
 
                         const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-                        if (typeof rawText !== 'string' || !rawText.trim()) {
-                            throw new Error('Empty verification response from models/gemini-3.8-flash.');
-                        }
+                        const cleanedJson = (typeof rawText === 'string' ? rawText.trim() : '')
+                            .replace(/^```json\s*/i, '')
+                            .replace(/```$/i, '')
+                            .trim();
 
-                        const cleanedJson = rawText.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
                         const parsed = JSON.parse(cleanedJson);
                         score = Number(parsed.score);
                         reasoning = parsed.reasoning || '';
                     } else {
                         const response = await fetch('/.netlify/functions/verify', {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
+                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ headline })
                         });
 
-                        const data = await response.json().catch(() => ({}));
-                        if (!response.ok || data.error) {
-                            throw new Error(data?.error?.message || 'Missing Gemini API key or verification service unavailable.');
+                        if (!response.ok) {
+                            throw new Error(`Request failed with status ${response.status}`);
                         }
 
+                        const data = await response.json();
                         score = Number(data.score);
                         reasoning = data.reasoning || '';
                     }
 
                     if (Number.isNaN(score)) {
-                        throw new Error('Invalid credibility score returned from verification endpoint.');
+                        throw new Error('Invalid score returned from verification endpoint');
                     }
 
                     resetBannerClasses();
@@ -2205,7 +2228,6 @@
                     return { score, reasoning };
                 } catch (error) {
                     console.error('Credibility verification failed:', error);
-                    const errMsg = error?.message || 'Verification service unavailable';
                     resetBannerClasses();
                     this.verificationBanner.classList.add('flex', 'border-red-500', 'bg-red-50');
                     this.verificationStatus.classList.add('text-red-700');
@@ -2213,8 +2235,8 @@
                     this.verificationReasoning.classList.add('text-red-800');
                     this.verificationStatus.innerText = 'Verification Error';
                     this.verificationScore.innerText = '—';
-                    this.verificationReasoning.innerText = errMsg;
-                    this.showToast(errMsg, true);
+                    this.verificationReasoning.innerText = error?.message || 'Verification service unavailable';
+                    this.showToast(error?.message || 'Verification service unavailable', true);
                     return null;
                 } finally {
                     this.verifyBtn.innerHTML = originalBtnContent;
@@ -2223,10 +2245,10 @@
             }
 
             init() {
-                // Initialize Inputs (Default to General Desk)
+                // Initialize Inputs (Default to General Desk -> GENERAL on Canvas)
                 this.titleInput.value = this.state.title;
-                this.categoryInput.value = "General Desk";
-                this.state.category = "General Desk";
+                this.categoryInput.value = "GENERAL";
+                this.state.category = "GENERAL";
                 
                 if (this.layoutThemeInput) {
                     this.layoutThemeInput.value = this.state.layoutTheme;
@@ -2443,8 +2465,8 @@
                 const handleReset = () => {
                     this.titleInput.value = '';
                     if (this.articleTextInput) this.articleTextInput.value = '';
-                    this.state.category = 'General Desk';
-                    if (this.categoryInput) this.categoryInput.value = 'General Desk';
+                    this.state.category = 'GENERAL';
+                    if (this.categoryInput) this.categoryInput.value = 'GENERAL';
                     this.state.backgroundImage = null;
                     this.imageUpload.value = '';
                     this.removeImageBtn.classList.add('hidden');
