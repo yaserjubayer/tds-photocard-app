@@ -199,20 +199,25 @@
                     </div>
                 </div>
                 
-                <!-- Category Selector -->
+                <!-- Category Selector (Strictly 14 Master Desks, Default: General Desk) -->
                 <div class="flex flex-col gap-1.5">
                     <label for="category-input" class="text-sm font-semibold text-m3-secondary px-1">Category / Desk</label>
                     <div class="relative">
                         <select id="category-input" class="w-full appearance-none bg-white border border-m3-outline rounded-xl px-4 py-3.5 text-m3-onSurface focus:outline-none focus:border-m3-primary focus:ring-1 focus:ring-m3-primary transition-all">
-                            <option value="Politics">Politics</option>
-                            <option value="BREAKING">BREAKING</option>
-                            <option value="OPINION">OPINION</option>
-                            <option value="OP-ED">OP-ED</option>
-                            <option value="National">National</option>
-                            <option value="Campus News">Campus News</option>
-                            <option value="Business">Business</option>
-                            <option value="World">World</option>
-                            <option value="Satire">Satire</option>
+                            <option value="Politics Desk">Politics Desk</option>
+                            <option value="General Desk" selected>General Desk</option>
+                            <option value="Sports Desk">Sports Desk</option>
+                            <option value="Law and Justice Desk">Law and Justice Desk</option>
+                            <option value="Tech and AI Desk">Tech and AI Desk</option>
+                            <option value="Religion and Peace Desk">Religion and Peace Desk</option>
+                            <option value="Human Rights Desk">Human Rights Desk</option>
+                            <option value="International Affairs">International Affairs</option>
+                            <option value="Literature and Philosophy Desk">Literature and Philosophy Desk</option>
+                            <option value="Health and Wellness Desk">Health and Wellness Desk</option>
+                            <option value="Culture and Dhaka Desk">Culture and Dhaka Desk</option>
+                            <option value="Entertainment Desk">Entertainment Desk</option>
+                            <option value="Women and Beauty Desk">Women and Beauty Desk</option>
+                            <option value="Comics and Satire Desk">Comics and Satire Desk</option>
                         </select>
                         <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-m3-outline">
                             <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
@@ -432,7 +437,7 @@
          */
         const AppState = {
             title: "Hasina Card and Friendship Are Contradictory, Says Home Minister to India",
-            category: "Politics",
+            category: "General Desk",
             preset: "standard",
             scrimIntensity: "standard",
             headlineWeight: "700",
@@ -739,6 +744,8 @@
             /**
              * Computes the exact bounding boxes (X, Y, width, height) for the TDS Logo (including backing pill)
              * and the Category Badge before laying out text.
+             * Dynamically sizes the badge width via ctx.measureText(categoryText.toUpperCase()).width + (badgePaddingX * 2)
+             * and steps down the badge font size if a long desk name comes within 30px of the TDS Logo.
              */
             getLogoAndBadgeBoxes(state, format, initialBoxes = []) {
                 const { width, padding } = format;
@@ -775,22 +782,44 @@
                     height: logoHeight + (pillPadY * 2)
                 };
 
-                const badgeText = (state.category || "NEWS").toUpperCase();
-                const badgeFontSize = Math.round(format.fontSize * 0.35);
-                this.ctx.font = `700 ${badgeFontSize}px "Inter"`;
-                const textWidth = this.ctx.measureText(badgeText).width;
+                const categoryText = (state.category || "General Desk").toUpperCase();
                 const badgePaddingX = 20;
                 const badgePaddingY = 12;
+                const logoCollisionGap = 30;
+                let badgeFontSize = Math.round(format.fontSize * 0.35);
+                const minBadgeFontSize = 12;
+
+                // Determine maximum width before coming within 30px of the TDS Logo
+                let maxAllowedBadgeWidth;
+                if (placement.quadrant === 'top-right') {
+                    maxAllowedBadgeWidth = (logoBox.x - logoCollisionGap) - padding;
+                } else if (placement.quadrant === 'top-left') {
+                    maxAllowedBadgeWidth = (width - padding) - (logoBox.x + logoBox.width + logoCollisionGap);
+                } else {
+                    maxAllowedBadgeWidth = width - (padding * 2) - logoBox.width - logoCollisionGap;
+                }
+
+                this.ctx.font = `700 ${badgeFontSize}px "Inter"`;
+                let badgeWidth = this.ctx.measureText(categoryText).width + (badgePaddingX * 2);
+
+                // Collision Safeguard: step down badge font size if badge comes within 30px of the TDS Logo
+                while (badgeWidth > maxAllowedBadgeWidth && badgeFontSize > minBadgeFontSize) {
+                    badgeFontSize -= 1;
+                    this.ctx.font = `700 ${badgeFontSize}px "Inter"`;
+                    badgeWidth = this.ctx.measureText(categoryText).width + (badgePaddingX * 2);
+                }
+
                 const badgeHeight = badgeFontSize + (badgePaddingY * 2);
-                const badgeWidth = textWidth + (badgePaddingX * 2);
                 const badgeX = placement.quadrant === 'top-right'
                     ? padding
                     : width - padding - badgeWidth;
                 const badgeY = padding;
 
                 const badgeBox = {
-                    text: badgeText,
+                    text: categoryText,
                     fontSize: badgeFontSize,
+                    paddingX: badgePaddingX,
+                    paddingY: badgePaddingY,
                     x: badgeX,
                     y: badgeY,
                     width: badgeWidth,
@@ -1269,16 +1298,27 @@
                     this.ctx.restore();
                 }
 
-                // Category Badge (Places in Top-Right by default, or shifts to Top-Left if Logo is in Top-Right)
+                // Category Badge (Dynamically sized via ctx.measureText + collision-safe font size)
+                const categoryText = (state.category || "General Desk").toUpperCase();
+                const badgePaddingX = badgeBox.paddingX || 20;
                 const badgeColor = state.brand.primaryColor;
                 this.ctx.font = `700 ${badgeBox.fontSize}px "Inter"`;
+                const dynamicBadgeWidth = this.ctx.measureText(categoryText).width + (badgePaddingX * 2);
+                const dynamicBadgeX = placement.quadrant === 'top-right'
+                    ? format.padding
+                    : format.width - format.padding - dynamicBadgeWidth;
+
                 this.ctx.fillStyle = badgeColor;
-                this.ctx.fillRect(badgeBox.x, badgeBox.y, badgeBox.width, badgeBox.height);
+                this.ctx.fillRect(dynamicBadgeX, badgeBox.y, dynamicBadgeWidth, badgeBox.height);
 
                 this.ctx.fillStyle = "#FFFFFF";
                 this.ctx.textAlign = "center";
                 this.ctx.textBaseline = "middle";
-                this.ctx.fillText(badgeBox.text, badgeBox.x + (badgeBox.width / 2), badgeBox.y + (badgeBox.height / 2) + 2);
+                this.ctx.fillText(
+                    categoryText,
+                    dynamicBadgeX + (dynamicBadgeWidth / 2),
+                    badgeBox.y + (badgeBox.height / 2) + 2
+                );
             }
 
             drawContent(state, format, layoutData) {
@@ -1616,7 +1656,7 @@
                     const dataUrl = this.engine.export();
                     
                     const portalName = (this.state.brand.watermark || 'portal').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-                    const cat = (this.state.category || 'news').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                    const cat = (this.state.category || 'general-desk').toLowerCase().replace(/[^a-z0-9]+/g, '-');
                     const fileName = `${portalName}-${cat}.png`;
 
                     const link = document.createElement('a');
@@ -1703,7 +1743,9 @@
 
             updateAndRender() {
                 this.state.title = this.titleInput.value;
-                this.state.category = this.categoryInput.value;
+                if (!this.state.category) {
+                    this.state.category = this.categoryInput.value || 'General Desk';
+                }
                 this.state.attribution = this.attributionInput.value;
                 this.state.readTime = this.readTimeInput.value;
                 this.engine.render(this.state);
@@ -1792,7 +1834,7 @@
                 this.state.preset = normalizedType;
 
                 if (normalizedType === 'breaking') {
-                    // 1. Update internal state for Breaking News
+                    // 1. Update internal state for Breaking News (temporarily displays BREAKING on canvas badge)
                     this.state.category = 'BREAKING';
                     this.state.brand.primaryColor = '#FF0000';
                     this.state.scrimIntensity = 'heavy';
@@ -1800,15 +1842,15 @@
                     this.state.layoutTheme = 'standard';
                     this.state.tone = 'breaking';
 
-                    // 2. Physically update visible HTML form inputs
-                    if (this.categoryInput) this.categoryInput.value = 'BREAKING';
+                    // 2. Physically update visible HTML form inputs (clear dropdown selection so user can immediately pick any of the 14 desks to override)
+                    if (this.categoryInput) this.categoryInput.selectedIndex = -1;
                     if (this.primaryColorInput) this.primaryColorInput.value = '#FF0000';
                     if (this.layoutThemeInput) this.layoutThemeInput.value = 'standard';
                     if (this.titleInput && this.titleInput.value) {
                         this.titleInput.value = this.titleInput.value.toUpperCase();
                     }
                 } else if (normalizedType === 'quote') {
-                    // 1. Update internal state for Quote Card
+                    // 1. Update internal state for Quote Card (temporarily displays OPINION on canvas badge)
                     this.state.category = 'OPINION';
                     this.state.brand.primaryColor = '#a31f24';
                     this.state.scrimIntensity = 'standard';
@@ -1818,7 +1860,7 @@
                     this.state.tone = 'quote';
 
                     // 2. Physically update visible HTML form inputs & expand quote drawer
-                    if (this.categoryInput) this.categoryInput.value = 'OPINION';
+                    if (this.categoryInput) this.categoryInput.selectedIndex = -1;
                     if (this.primaryColorInput) this.primaryColorInput.value = '#a31f24';
                     if (this.layoutThemeInput) this.layoutThemeInput.value = 'quote';
                     if (this.includeQuoteToggle) this.includeQuoteToggle.checked = true;
@@ -1833,9 +1875,9 @@
                         this.quoteAttributionInput.value = this.state.quoteAttribution;
                     }
                 } else {
-                    // 1. Reset internal state to Standard TDS Layout
+                    // 1. Reset internal state to Standard TDS Layout (resets Category to General Desk)
                     this.state.preset = 'standard';
-                    this.state.category = 'Politics';
+                    this.state.category = 'General Desk';
                     this.state.brand.primaryColor = '#a31f24';
                     this.state.scrimIntensity = 'standard';
                     this.state.headlineWeight = '700';
@@ -1844,7 +1886,7 @@
                     this.state.tone = 'standard';
 
                     // 2. Physically update visible HTML form inputs
-                    if (this.categoryInput) this.categoryInput.value = 'Politics';
+                    if (this.categoryInput) this.categoryInput.value = 'General Desk';
                     if (this.primaryColorInput) this.primaryColorInput.value = '#a31f24';
                     if (this.layoutThemeInput) this.layoutThemeInput.value = 'standard';
                     if (this.includeQuoteToggle) this.includeQuoteToggle.checked = false;
@@ -1924,7 +1966,7 @@
             }
 
             /**
-             * Generates a punchy TDS headline from raw article text using Gemini 2.5 Flash
+             * Generates a punchy TDS headline from raw article text using Gemini 3.8 Flash
              * Truncates input text to 6,000 characters to prevent payload/token limit failures.
              */
             async generateHeadlineFromText() {
@@ -1967,13 +2009,11 @@
 
                 try {
                     if (!apiKey) {
-                        const keyMissingError = new Error('Missing Gemini API Key. Please enter a valid Gemini API key above.');
-                        keyMissingError.isAuthError = true;
-                        throw keyMissingError;
+                        throw new Error('Missing Gemini API Key. Please enter a valid Gemini API key above.');
                     }
 
-                    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
-                    const promptInstruction = [
+                    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
+                    const prompt = [
                         'You are the Chief Sub-Editor at The Dhaka Standard (TDS).',
                         'Read the following news article excerpt and write ONE punchy, high-impact journalistic headline (maximum 14 words).',
                         'Preserve the original language of the article (if the article is in Bengali, output a Bengali headline; if in English, output an English headline).',
@@ -1987,14 +2027,10 @@
                         contents: [
                             {
                                 parts: [
-                                    { text: promptInstruction }
+                                    { text: prompt }
                                 ]
                             }
-                        ],
-                        generationConfig: {
-                            temperature: 0.4,
-                            maxOutputTokens: 120
-                        }
+                        ]
                     };
 
                     const response = await fetch(endpoint, {
@@ -2005,40 +2041,20 @@
                         body: JSON.stringify(payload)
                     });
 
-                    if (!response.ok) {
-                        let apiErrorDetail = '';
-                        try {
-                            const errJson = await response.json();
-                            apiErrorDetail = (errJson && errJson.error && errJson.error.message) ? errJson.error.message : '';
-                        } catch (_) {
-                            // Ignore JSON parse error on error response
-                        }
+                    const data = await response.json().catch(() => ({}));
 
-                        if (response.status === 400 || response.status === 401 || response.status === 403 || /api key|key not valid|permission|unauthenticated/i.test(apiErrorDetail)) {
-                            const authErr = new Error(apiErrorDetail || `Invalid or unauthorized Gemini API key (HTTP ${response.status}).`);
-                            authErr.isAuthError = true;
-                            throw authErr;
-                        }
-
-                        throw new Error(apiErrorDetail || `Gemini API request failed with status ${response.status}`);
+                    if (!response.ok || data.error) {
+                        const apiErrorMessage = data?.error?.message || `Gemini API request failed with status ${response.status}`;
+                        throw new Error(apiErrorMessage);
                     }
 
-                    const data = await response.json();
-                    const candidateText = data?.candidates?.[0]?.content?.parts
-                        ?.map(part => part.text || '')
-                        .join(' ')
-                        .trim();
-
-                    const generatedText = (
-                        candidateText ||
-                        data.headline ||
-                        data.title ||
-                        data.text ||
-                        ''
-                    ).replace(/^["'“”]+|["'“”]+$/g, '').trim();
+                    const rawCandidateText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    const generatedText = typeof rawCandidateText === 'string'
+                        ? rawCandidateText.trim().replace(/^["'“”]+|["'“”]+$/g, '').trim()
+                        : '';
 
                     if (!generatedText) {
-                        throw new Error('No headline text was returned by the Gemini API.');
+                        throw new Error('No headline text was returned by models/gemini-3.8-flash.');
                     }
 
                     // Inject generated headline into Main Headline textarea & trigger Canvas render
@@ -2047,21 +2063,13 @@
                     this.showToast('TDS Headline generated!');
                 } catch (error) {
                     console.error('Headline generation failed:', error.message || error);
-
-                    const isKeyIssue = Boolean(
-                        error.isAuthError ||
-                        /api key|missing gemini api key|unauthorized|401|403/i.test(error.message || '')
-                    );
-
-                    const userMessage = isKeyIssue
-                        ? `API Key Error: ${error.message}`
-                        : `Network / API Error: ${error.message || 'Failed to reach Gemini API. Please check your connection.'}`;
+                    const errorMessage = error?.message || 'Failed to reach Gemini API. Please check your connection.';
 
                     if (this.textErrorMsg) {
-                        this.textErrorMsg.innerText = userMessage;
+                        this.textErrorMsg.innerText = errorMessage;
                         this.textErrorMsg.classList.remove('hidden');
                     }
-                    this.showToast(isKeyIssue ? 'Missing or invalid Gemini API key.' : 'Network error while generating headline.', true);
+                    this.showToast(errorMessage, true);
                 } finally {
                     this.generateHeadlineBtn.innerHTML = originalBtnHtml;
                     this.generateHeadlineBtn.disabled = false;
@@ -2069,7 +2077,7 @@
             }
 
             /**
-             * Calls the Netlify verification endpoint to evaluate headline credibility
+             * Evaluates headline credibility using Gemini 3.8 Flash (with Netlify function fallback if no key is set)
              */
             async verifyNewsCredibility(headlineInput) {
                 const headline = (headlineInput !== undefined ? headlineInput : this.titleInput.value).trim();
@@ -2097,24 +2105,69 @@
                 };
 
                 try {
-                    const response = await fetch('/.netlify/functions/verify', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ headline })
-                    });
+                    const inputKey = this.geminiApiKeyInput ? this.geminiApiKeyInput.value.trim() : '';
+                    const storedKey = localStorage.getItem('tds_gemini_api_key') || '';
+                    const apiKey = inputKey || storedKey || window.GEMINI_API_KEY || '';
 
-                    if (!response.ok) {
-                        throw new Error(`Request failed with status ${response.status}`);
+                    let score;
+                    let reasoning = '';
+
+                    if (apiKey) {
+                        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
+                        const prompt = [
+                            'You are an editorial fact-checker at The Dhaka Standard (TDS).',
+                            'Evaluate the following news headline against journalistic credibility standards (neutrality, plausibility, absence of clickbait/sensationalism, and factual tone).',
+                            'Respond ONLY with a valid JSON object in this exact format: {"score": 85, "reasoning": "One concise sentence explaining the score."}',
+                            '',
+                            `Headline: ${headline}`
+                        ].join('\n');
+
+                        const response = await fetch(endpoint, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                contents: [{ parts: [{ text: prompt }] }]
+                            })
+                        });
+
+                        const data = await response.json().catch(() => ({}));
+
+                        if (!response.ok || data.error) {
+                            const apiErrorMessage = data?.error?.message || `Verification API failed with status ${response.status}`;
+                            throw new Error(apiErrorMessage);
+                        }
+
+                        const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                        if (typeof rawText !== 'string' || !rawText.trim()) {
+                            throw new Error('Empty verification response from models/gemini-3.8-flash.');
+                        }
+
+                        const cleanedJson = rawText.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+                        const parsed = JSON.parse(cleanedJson);
+                        score = Number(parsed.score);
+                        reasoning = parsed.reasoning || '';
+                    } else {
+                        const response = await fetch('/.netlify/functions/verify', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ headline })
+                        });
+
+                        const data = await response.json().catch(() => ({}));
+                        if (!response.ok || data.error) {
+                            throw new Error(data?.error?.message || 'Missing Gemini API key or verification service unavailable.');
+                        }
+
+                        score = Number(data.score);
+                        reasoning = data.reasoning || '';
                     }
 
-                    const data = await response.json();
-                    const score = Number(data.score);
-                    const reasoning = data.reasoning || '';
-
                     if (Number.isNaN(score)) {
-                        throw new Error('Invalid score returned from verification endpoint');
+                        throw new Error('Invalid credibility score returned from verification endpoint.');
                     }
 
                     resetBannerClasses();
@@ -2152,6 +2205,7 @@
                     return { score, reasoning };
                 } catch (error) {
                     console.error('Credibility verification failed:', error);
+                    const errMsg = error?.message || 'Verification service unavailable';
                     resetBannerClasses();
                     this.verificationBanner.classList.add('flex', 'border-red-500', 'bg-red-50');
                     this.verificationStatus.classList.add('text-red-700');
@@ -2159,7 +2213,8 @@
                     this.verificationReasoning.classList.add('text-red-800');
                     this.verificationStatus.innerText = 'Verification Error';
                     this.verificationScore.innerText = '—';
-                    this.verificationReasoning.innerText = 'Verification service unavailable';
+                    this.verificationReasoning.innerText = errMsg;
+                    this.showToast(errMsg, true);
                     return null;
                 } finally {
                     this.verifyBtn.innerHTML = originalBtnContent;
@@ -2168,9 +2223,10 @@
             }
 
             init() {
-                // Initialize Inputs
+                // Initialize Inputs (Default to General Desk)
                 this.titleInput.value = this.state.title;
-                this.categoryInput.value = this.state.category;
+                this.categoryInput.value = "General Desk";
+                this.state.category = "General Desk";
                 
                 if (this.layoutThemeInput) {
                     this.layoutThemeInput.value = this.state.layoutTheme;
@@ -2239,9 +2295,14 @@
                 window.sharePhotocard = () => this.sharePhotocard();
                 window.applyPreset = (type) => this.applyPreset(type);
 
-                // Bind Main Form Events (Retains manual override on Main Headline)
+                // Bind Main Form Events (Retains manual override on Main Headline & Category Desk)
                 this.titleInput.addEventListener('input', () => this.updateAndRender());
-                this.categoryInput.addEventListener('change', () => this.updateAndRender());
+                this.categoryInput.addEventListener('change', (e) => {
+                    if (e.target.value) {
+                        this.state.category = e.target.value;
+                        this.updateAndRender();
+                    }
+                });
                 this.attributionInput.addEventListener('input', () => this.updateAndRender());
                 this.readTimeInput.addEventListener('input', () => this.updateAndRender());
 
@@ -2382,6 +2443,8 @@
                 const handleReset = () => {
                     this.titleInput.value = '';
                     if (this.articleTextInput) this.articleTextInput.value = '';
+                    this.state.category = 'General Desk';
+                    if (this.categoryInput) this.categoryInput.value = 'General Desk';
                     this.state.backgroundImage = null;
                     this.imageUpload.value = '';
                     this.removeImageBtn.classList.add('hidden');
