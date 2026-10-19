@@ -189,6 +189,51 @@
                         <p class="text-xs text-m3-secondary mt-1">Auto-crops to fill canvas (PNG, JPG, WEBP)</p>
                     </div>
                     <input type="file" id="image-upload" class="hidden" accept="image/*">
+
+                    <!-- Background Zoom, Horizontal Pan & Vertical Pan Sliders -->
+                    <div class="flex flex-col gap-3 pt-3 border-t border-m3-primary/15 mt-1">
+                        <!-- Zoom Image Slider -->
+                        <div class="flex flex-col gap-1">
+                            <div class="flex items-center justify-between px-1">
+                                <label for="bgZoom" class="text-xs font-bold text-m3-secondary uppercase tracking-wider">Zoom Image</label>
+                                <span id="bg-zoom-value" class="text-xs font-bold text-m3-primary">100%</span>
+                            </div>
+                            <input type="range" id="bgZoom" min="100" max="300" value="100" class="w-full h-2 bg-white rounded-lg appearance-none cursor-pointer accent-m3-primary border border-m3-primary/30">
+                            <div class="flex justify-between text-[10px] font-medium text-m3-outline px-1">
+                                <span>100% (Fit)</span>
+                                <span>200%</span>
+                                <span>300% (Max)</span>
+                            </div>
+                        </div>
+
+                        <!-- Horizontal Pan Slider -->
+                        <div class="flex flex-col gap-1">
+                            <div class="flex items-center justify-between px-1">
+                                <label for="bgOffsetX" class="text-xs font-bold text-m3-secondary uppercase tracking-wider">Horizontal Pan</label>
+                                <span id="bg-offset-x-value" class="text-xs font-bold text-m3-primary">50%</span>
+                            </div>
+                            <input type="range" id="bgOffsetX" min="0" max="100" value="50" class="w-full h-2 bg-white rounded-lg appearance-none cursor-pointer accent-m3-primary border border-m3-primary/30">
+                            <div class="flex justify-between text-[10px] font-medium text-m3-outline px-1">
+                                <span>Left (0%)</span>
+                                <span>Center (50%)</span>
+                                <span>Right (100%)</span>
+                            </div>
+                        </div>
+
+                        <!-- Vertical Pan Slider -->
+                        <div class="flex flex-col gap-1">
+                            <div class="flex items-center justify-between px-1">
+                                <label for="bgOffsetY" class="text-xs font-bold text-m3-secondary uppercase tracking-wider">Vertical Pan</label>
+                                <span id="bg-offset-y-value" class="text-xs font-bold text-m3-primary">50%</span>
+                            </div>
+                            <input type="range" id="bgOffsetY" min="0" max="100" value="50" class="w-full h-2 bg-white rounded-lg appearance-none cursor-pointer accent-m3-primary border border-m3-primary/30">
+                            <div class="flex justify-between text-[10px] font-medium text-m3-outline px-1">
+                                <span>Top (0%)</span>
+                                <span>Center (50%)</span>
+                                <span>Bottom (100%)</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Aspect Ratio Selector -->
@@ -479,6 +524,9 @@
             readTime: "",
             currentFormat: "4:5",
             backgroundImage: null,
+            bgZoom: 100,
+            bgOffsetX: 50,
+            bgOffsetY: 50,
             includeQuote: false,
             quoteText: "আপনারা হাসিনা কার্ড খেলবেন আর বাংলাদেশের সঙ্গে বন্ধুত্বপূর্ণ সম্পর্ক চাইবেন; মনে রাখতে হবে, দুটো বিপরীত।",
             quoteAttribution: "Salahuddin Ahmed, Home Minister",
@@ -522,36 +570,47 @@
                 this.ctx.fillStyle = state.theme.bgBase;
                 this.ctx.fillRect(0, 0, width, height);
 
-                // Draw Uploaded Image using strict CSS object-fit: cover center-crop math
+                // Draw Uploaded Image using 9-parameter Safe-Crop Math (Zoom, Horizontal Pan, Vertical Pan)
                 const img = state.backgroundImage;
                 if (img && (img.naturalWidth || img.width) > 0 && (img.naturalHeight || img.height) > 0) {
-                    const imgW = img.naturalWidth || img.width;
-                    const imgH = img.naturalHeight || img.height;
-                    const imgRatio = imgW / imgH;
-                    const canvasRatio = width / height;
+                    const naturalW = img.naturalWidth || img.width;
+                    const naturalH = img.naturalHeight || img.height;
 
-                    let sourceX = 0;
-                    let sourceY = 0;
-                    let sourceWidth = imgW;
-                    let sourceHeight = imgH;
+                    // Step A: Calculate Base Crop (Aspect Ratio Match)
+                    const canvasAspect = width / height;
+                    const imgAspect = naturalW / naturalH;
+                    let baseW, baseH;
 
-                    if (imgRatio > canvasRatio) {
-                        // Image is wider than canvas aspect ratio: crop left and right edges
-                        sourceWidth = imgH * canvasRatio;
-                        sourceX = (imgW - sourceWidth) / 2;
+                    if (imgAspect > canvasAspect) {
+                        baseH = naturalH;
+                        baseW = baseH * canvasAspect;
                     } else {
-                        // Image is taller than canvas aspect ratio: crop top and bottom edges
-                        sourceHeight = imgW / canvasRatio;
-                        sourceY = (imgH - sourceHeight) / 2;
+                        baseW = naturalW;
+                        baseH = baseW / canvasAspect;
                     }
 
+                    // Step B: Apply Zoom Slider
+                    const bgZoomValue = state.bgZoom !== undefined ? Number(state.bgZoom) : 100;
+                    const zoom = Math.max(1, bgZoomValue / 100);
+                    const sWidth = baseW / zoom;
+                    const sHeight = baseH / zoom;
+
+                    // Step C: Apply Pan Sliders (X and Y offsets)
+                    const bgOffsetXValue = state.bgOffsetX !== undefined ? Number(state.bgOffsetX) : 50;
+                    const bgOffsetYValue = state.bgOffsetY !== undefined ? Number(state.bgOffsetY) : 50;
+                    const maxPanX = Math.max(0, naturalW - sWidth);
+                    const maxPanY = Math.max(0, naturalH - sHeight);
+                    const sx = maxPanX * (bgOffsetXValue / 100);
+                    const sy = maxPanY * (bgOffsetYValue / 100);
+
+                    // Step D: Draw
                     this.ctx.save();
                     this.ctx.drawImage(
                         img,
-                        sourceX,
-                        sourceY,
-                        sourceWidth,
-                        sourceHeight,
+                        sx,
+                        sy,
+                        sWidth,
+                        sHeight,
                         0,
                         0,
                         width,
@@ -916,19 +975,22 @@
                 }];
                 const { logoBox, badgeBox } = this.getLogoAndBadgeBoxes(state, format, safeZoneReservation);
 
-                // 1. Define Strict Vertical Zones
+                // 1. Define Strict Vertical Zones (between headerBottomY and dateTopY)
                 const isLogoInHeader = (logoBox.quadrant === 'top-left' || logoBox.quadrant === 'top-right');
                 const isLogoInFooter = (logoBox.quadrant === 'bottom-left' || logoBox.quadrant === 'bottom-right');
 
                 const logoBottom = isLogoInHeader ? (logoBox.y + logoBox.height) : 0;
                 const badgeBottom = badgeBox.y + badgeBox.height;
-                const headerBottomY = Math.max(logoBottom, badgeBottom) + Math.round(padding * 0.65);
+                const headerBottomY = Math.max(logoBottom, badgeBottom) + Math.round(padding * 0.45);
 
+                // Calculate exact top edge of the Al Jazeera-style date stamp and bottom footer
                 const footerDividerY = height - padding - footerLayout.footerHeight;
-                const dateRowClearance = 35;
-                const effectiveFooterTopY = footerDividerY - dateRowClearance;
-                const bottomBoundaryY = isLogoInFooter ? Math.min(effectiveFooterTopY, logoBox.y) : effectiveFooterTopY;
-                const footerTopY = bottomBoundaryY - Math.round(padding * 0.65);
+                const dateFontSize = Math.max(15, Math.round(format.fontSize * 0.22));
+                const dateBottomY = footerDividerY - 22;
+                const dateTopY = dateBottomY - dateFontSize;
+
+                const bottomBoundaryY = isLogoInFooter ? Math.min(dateTopY, logoBox.y) : dateTopY;
+                const footerTopY = bottomBoundaryY - Math.round(padding * 0.45);
 
                 const safeZoneHeight = Math.max(140, footerTopY - headerBottomY);
 
@@ -1025,7 +1087,9 @@
                             contentMaxWidth
                         );
 
-                        const totalHlHeight = rawHlLines.length * hlLineHeight;
+                        const totalHlHeight = rawHlLines.length > 0
+                            ? ((rawHlLines.length - 1) * hlLineHeight) + hlFontSize
+                            : 0;
                         const maxHlLineWidth = rawHlLines.reduce(
                             (max, l) => Math.max(max, this.ctx.measureText(l.text).width),
                             0
@@ -1093,7 +1157,7 @@
                     dryRun = buildDryRunLayout(scaleRatio);
                 }
 
-                // 3. Vertically Center the Text Block inside the Safe Zone
+                // 3. Vertically Center the Text Block inside the Safe Zone (between headerBottomY and dateTopY)
                 const startY = headerBottomY + Math.max(0, Math.round((safeZoneHeight - dryRun.totalTextHeight) / 2));
 
                 const boxes = [];
@@ -1659,12 +1723,18 @@
                 this.layoutThemeInput = document.getElementById('layout-theme-input'); // New Theme Input
                 this.attributionInput = document.getElementById('attribution-input');
                 this.readTimeInput = document.getElementById('read-time-input');
-                
-                // Image Uploads
+
+                // Image Uploads & Framing
                 this.imageUpload = document.getElementById('image-upload');
                 this.dropzone = document.getElementById('dropzone');
                 this.bgUploadStatus = document.getElementById('bg-upload-status');
                 this.removeImageBtn = document.getElementById('remove-image-btn');
+                this.bgZoomInput = document.getElementById('bgZoom');
+                this.bgZoomValue = document.getElementById('bg-zoom-value');
+                this.bgOffsetXInput = document.getElementById('bgOffsetX');
+                this.bgOffsetXValue = document.getElementById('bg-offset-x-value');
+                this.bgOffsetYInput = document.getElementById('bgOffsetY');
+                this.bgOffsetYValue = document.getElementById('bg-offset-y-value');
                 
                 // Formatting & Tone Options
                 this.formatSelectorsContainer = document.getElementById('format-selectors');
@@ -1820,6 +1890,15 @@
                 }
                 if (this.dateStampInput) {
                     this.state.dateStamp = this.dateStampInput.value;
+                }
+                if (this.bgZoomInput) {
+                    this.state.bgZoom = Number(this.bgZoomInput.value);
+                }
+                if (this.bgOffsetXInput) {
+                    this.state.bgOffsetX = Number(this.bgOffsetXInput.value);
+                }
+                if (this.bgOffsetYInput) {
+                    this.state.bgOffsetY = Number(this.bgOffsetYInput.value);
                 }
                 this.state.attribution = this.attributionInput.value;
                 this.state.readTime = this.readTimeInput.value;
@@ -2506,6 +2585,15 @@
                 this.removeImageBtn.addEventListener('click', (e) => {
                     e.preventDefault();
                     this.state.backgroundImage = null;
+                    this.state.bgZoom = 100;
+                    this.state.bgOffsetX = 50;
+                    this.state.bgOffsetY = 50;
+                    if (this.bgZoomInput) this.bgZoomInput.value = '100';
+                    if (this.bgZoomValue) this.bgZoomValue.innerText = '100%';
+                    if (this.bgOffsetXInput) this.bgOffsetXInput.value = '50';
+                    if (this.bgOffsetXValue) this.bgOffsetXValue.innerText = '50%';
+                    if (this.bgOffsetYInput) this.bgOffsetYInput.value = '50';
+                    if (this.bgOffsetYValue) this.bgOffsetYValue.innerText = '50%';
                     this.imageUpload.value = '';
                     this.removeImageBtn.classList.add('hidden');
                     if (this.bgUploadStatus) {
@@ -2513,6 +2601,24 @@
                     }
                     this.updateAndRender();
                 });
+
+                const bindFramingSlider = (inputEl, labelEl, stateKey, defaultVal) => {
+                    if (!inputEl) return;
+                    inputEl.value = String(this.state[stateKey] ?? defaultVal);
+                    const handleSlide = (e) => {
+                        this.state[stateKey] = Number(e.target.value);
+                        if (labelEl) {
+                            labelEl.innerText = `${this.state[stateKey]}%`;
+                        }
+                        this.updateAndRender();
+                    };
+                    inputEl.oninput = handleSlide;
+                    inputEl.addEventListener('input', handleSlide);
+                };
+
+                bindFramingSlider(this.bgZoomInput, this.bgZoomValue, 'bgZoom', 100);
+                bindFramingSlider(this.bgOffsetXInput, this.bgOffsetXValue, 'bgOffsetX', 50);
+                bindFramingSlider(this.bgOffsetYInput, this.bgOffsetYValue, 'bgOffsetY', 50);
 
                 // Author UI Bindings
                 this.showAuthorToggle.addEventListener('change', (e) => {
@@ -2598,6 +2704,15 @@
                     this.state.dateStamp = freshDate;
                     if (this.dateStampInput) this.dateStampInput.value = freshDate;
                     this.state.backgroundImage = null;
+                    this.state.bgZoom = 100;
+                    this.state.bgOffsetX = 50;
+                    this.state.bgOffsetY = 50;
+                    if (this.bgZoomInput) this.bgZoomInput.value = '100';
+                    if (this.bgZoomValue) this.bgZoomValue.innerText = '100%';
+                    if (this.bgOffsetXInput) this.bgOffsetXInput.value = '50';
+                    if (this.bgOffsetXValue) this.bgOffsetXValue.innerText = '50%';
+                    if (this.bgOffsetYInput) this.bgOffsetYInput.value = '50';
+                    if (this.bgOffsetYValue) this.bgOffsetYValue.innerText = '50%';
                     this.imageUpload.value = '';
                     this.removeImageBtn.classList.add('hidden');
                     if (this.bgUploadStatus) this.bgUploadStatus.innerText = 'Click to upload photo or drag and drop';
