@@ -239,6 +239,15 @@
                     </div>
                 </div>
 
+                <!-- Date Stamp (Auto: Dhaka Time) with Optional Editorial Override -->
+                <div class="flex flex-col gap-1.5">
+                    <div class="flex items-center justify-between px-1">
+                        <label for="date-stamp-input" class="text-sm font-semibold text-m3-secondary">Date Stamp (Auto: Dhaka Time)</label>
+                        <button type="button" id="reset-date-btn" class="text-[11px] font-bold text-m3-primary hover:underline">Reset to Today</button>
+                    </div>
+                    <input type="text" id="date-stamp-input" placeholder="e.g. 19 OCT 2026" class="w-full bg-white border border-m3-outline rounded-xl px-4 py-3 text-sm font-semibold uppercase tracking-wider text-m3-onSurface focus:outline-none focus:border-m3-primary focus:ring-1 focus:ring-m3-primary transition-all">
+                </div>
+
                 <!-- AI Raw Article Text to Headline Generator -->
                 <div class="flex flex-col gap-2">
                     <div class="flex items-center justify-between px-1">
@@ -432,12 +441,35 @@
         };
 
         /**
+         * Dhaka Standard Time & Al Jazeera Date Formatter (Asia/Dhaka, UTC+6)
+         * Formats date as: Day (no leading zero) + 3-letter Month + 4-digit Year in uppercase (e.g., "19 OCT 2026")
+         */
+        function getDhakaDateString() {
+            const parts = new Intl.DateTimeFormat('en-GB', {
+                timeZone: 'Asia/Dhaka',
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+            }).formatToParts(new Date());
+            const day = parts.find(p => p.type === 'day')?.value || '';
+            const rawMonth = parts.find(p => p.type === 'month')?.value || '';
+            const month = rawMonth.replace('.', '').slice(0, 3).toUpperCase();
+            const year = parts.find(p => p.type === 'year')?.value || '';
+            return `${day} ${month} ${year}`.trim();
+        }
+
+        function getDhakaDateFormatted() {
+            return getDhakaDateString();
+        }
+
+        /**
          * State Management
          * Source of truth for the photocard configurations
          */
         const AppState = {
             title: "Hasina Card and Friendship Are Contradictory, Says Home Minister to India",
             category: "GENERAL",
+            dateStamp: getDhakaDateFormatted(),
             preset: "standard",
             scrimIntensity: "standard",
             headlineWeight: "700",
@@ -621,6 +653,40 @@
                 const dividerY = height - padding - footerHeight;
 
                 this.ctx.save();
+
+                // 1. Render Al Jazeera-style Date Stamp 22px directly above the horizontal footer divider line
+                const dateText = ((state.dateStamp !== undefined && state.dateStamp !== null)
+                    ? String(state.dateStamp)
+                    : getDhakaDateFormatted()).trim().toUpperCase();
+
+                if (dateText) {
+                    const dateFontSize = Math.max(15, Math.round(format.fontSize * 0.22));
+                    const barWidth = 4;
+                    const barGap = 12;
+                    const barHeight = dateFontSize;
+                    const dateBottomY = dividerY - 22;
+                    const dateTopY = dateBottomY - barHeight;
+                    const dateCenterY = dateTopY + (barHeight / 2);
+
+                    // Crisp 4px vertical accent bar in TDS Brand Red (#B91C1C)
+                    this.ctx.fillStyle = state.preset === 'breaking' ? '#FF0000' : '#B91C1C';
+                    this.ctx.fillRect(paddingX, dateTopY, barWidth, barHeight);
+
+                    // Semi-bold uppercase date text (#E5E7EB) 12px to the right of the red accent bar
+                    this.ctx.font = `600 ${dateFontSize}px "Inter", sans-serif`;
+                    this.ctx.fillStyle = '#E5E7EB';
+                    this.ctx.textAlign = 'left';
+                    this.ctx.textBaseline = 'middle';
+                    if ('letterSpacing' in this.ctx) {
+                        this.ctx.letterSpacing = '1.5px';
+                    }
+                    this.ctx.fillText(dateText, paddingX + barWidth + barGap, dateCenterY + 1);
+                    if ('letterSpacing' in this.ctx) {
+                        this.ctx.letterSpacing = '0px';
+                    }
+                }
+
+                // 2. Horizontal Footer Divider Line
                 this.ctx.beginPath();
                 this.ctx.moveTo(paddingX, dividerY);
                 this.ctx.lineTo(rightEdgeX, dividerY);
@@ -859,7 +925,9 @@
                 const headerBottomY = Math.max(logoBottom, badgeBottom) + Math.round(padding * 0.65);
 
                 const footerDividerY = height - padding - footerLayout.footerHeight;
-                const bottomBoundaryY = isLogoInFooter ? Math.min(footerDividerY, logoBox.y) : footerDividerY;
+                const dateRowClearance = 35;
+                const effectiveFooterTopY = footerDividerY - dateRowClearance;
+                const bottomBoundaryY = isLogoInFooter ? Math.min(effectiveFooterTopY, logoBox.y) : effectiveFooterTopY;
                 const footerTopY = bottomBoundaryY - Math.round(padding * 0.65);
 
                 const safeZoneHeight = Math.max(140, footerTopY - headerBottomY);
@@ -1116,7 +1184,7 @@
             resolveLogoPlacement(state, format, layoutData, logoWidth, logoHeight) {
                 const { width, height, padding } = format;
                 const footerLayout = this.getFooterLayout(format);
-                const footerTopY = height - padding - footerLayout.footerHeight;
+                const footerTopY = height - padding - footerLayout.footerHeight - 35;
                 const usableHeight = footerTopY - (padding * 0.5);
 
                 const cornerCoordinates = {
@@ -1586,6 +1654,8 @@
                 this.generateHeadlineBtn = document.getElementById('generate-headline-btn');
                 this.textErrorMsg = document.getElementById('text-error-msg');
                 this.categoryInput = document.getElementById('category-input');
+                this.dateStampInput = document.getElementById('date-stamp-input');
+                this.resetDateBtn = document.getElementById('reset-date-btn');
                 this.layoutThemeInput = document.getElementById('layout-theme-input'); // New Theme Input
                 this.attributionInput = document.getElementById('attribution-input');
                 this.readTimeInput = document.getElementById('read-time-input');
@@ -1747,6 +1817,9 @@
                 this.state.title = this.titleInput.value;
                 if (!this.state.category) {
                     this.state.category = this.categoryInput.value || 'GENERAL';
+                }
+                if (this.dateStampInput) {
+                    this.state.dateStamp = this.dateStampInput.value;
                 }
                 this.state.attribution = this.attributionInput.value;
                 this.state.readTime = this.readTimeInput.value;
@@ -2029,9 +2102,15 @@
 
                     const payload = {
                         contents: [{ parts: [{ text: prompt }] }],
+                        safetySettings: [
+                            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+                            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+                            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+                            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+                        ],
                         generationConfig: {
                             temperature: 0.4,
-                            maxOutputTokens: 120
+                            maxOutputTokens: 1024
                         }
                     };
 
@@ -2060,11 +2139,15 @@
                         throw new Error(apiErrorDetail);
                     }
 
-                    const rawCandidateText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-                    const candidateText = typeof rawCandidateText === 'string' ? rawCandidateText.trim() : '';
+                    const parts = data?.candidates?.[0]?.content?.parts || [];
+                    const outputText = parts
+                        .filter(p => !p.thought && typeof p.text === 'string')
+                        .map(p => p.text)
+                        .join(' ')
+                        .trim();
 
                     const generatedText = (
-                        candidateText ||
+                        outputText ||
                         data.headline ||
                         data.title ||
                         data.text ||
@@ -2072,6 +2155,10 @@
                     ).replace(/^["'“”]+|["'“”]+$/g, '').trim();
 
                     if (!generatedText) {
+                        const finishReason = data?.candidates?.[0]?.finishReason || data?.promptFeedback?.blockReason;
+                        if (finishReason) {
+                            throw new Error(`Blocked (${finishReason})`);
+                        }
                         throw new Error('No headline text was returned by the Gemini API.');
                     }
 
@@ -2147,12 +2234,24 @@
                             `Headline: ${headline}`
                         ].join('\n');
 
+                        const payload = {
+                            contents: [{ parts: [{ text: prompt }] }],
+                            safetySettings: [
+                                { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+                                { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+                                { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+                                { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+                            ],
+                            generationConfig: {
+                                temperature: 0.2,
+                                maxOutputTokens: 1024
+                            }
+                        };
+
                         const response = await fetch(endpoint, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                contents: [{ parts: [{ text: prompt }] }]
-                            })
+                            body: JSON.stringify(payload)
                         });
 
                         let data = {};
@@ -2164,8 +2263,22 @@
                             throw new Error(data?.error?.message || `Verification failed with status ${response.status}`);
                         }
 
-                        const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-                        const cleanedJson = (typeof rawText === 'string' ? rawText.trim() : '')
+                        const parts = data?.candidates?.[0]?.content?.parts || [];
+                        const outputText = parts
+                            .filter(p => !p.thought && typeof p.text === 'string')
+                            .map(p => p.text)
+                            .join(' ')
+                            .trim();
+
+                        if (!outputText) {
+                            const finishReason = data?.candidates?.[0]?.finishReason || data?.promptFeedback?.blockReason;
+                            if (finishReason) {
+                                throw new Error(`API Error: Blocked (${finishReason})`);
+                            }
+                            throw new Error('No verification response text was returned by the Gemini API.');
+                        }
+
+                        const cleanedJson = outputText
                             .replace(/^```json\s*/i, '')
                             .replace(/```$/i, '')
                             .trim();
@@ -2249,6 +2362,20 @@
                 this.titleInput.value = this.state.title;
                 this.categoryInput.value = "GENERAL";
                 this.state.category = "GENERAL";
+
+                if (this.dateStampInput) {
+                    this.state.dateStamp = getDhakaDateFormatted();
+                    this.dateStampInput.value = this.state.dateStamp;
+                    this.dateStampInput.addEventListener('input', () => this.updateAndRender());
+                }
+                if (this.resetDateBtn && this.dateStampInput) {
+                    this.resetDateBtn.addEventListener('click', () => {
+                        const freshDate = getDhakaDateFormatted();
+                        this.state.dateStamp = freshDate;
+                        this.dateStampInput.value = freshDate;
+                        this.updateAndRender();
+                    });
+                }
                 
                 if (this.layoutThemeInput) {
                     this.layoutThemeInput.value = this.state.layoutTheme;
@@ -2467,6 +2594,9 @@
                     if (this.articleTextInput) this.articleTextInput.value = '';
                     this.state.category = 'GENERAL';
                     if (this.categoryInput) this.categoryInput.value = 'GENERAL';
+                    const freshDate = getDhakaDateFormatted();
+                    this.state.dateStamp = freshDate;
+                    if (this.dateStampInput) this.dateStampInput.value = freshDate;
                     this.state.backgroundImage = null;
                     this.imageUpload.value = '';
                     this.removeImageBtn.classList.add('hidden');
