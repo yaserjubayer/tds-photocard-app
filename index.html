@@ -319,6 +319,20 @@
                             Verify Credibility
                         </button>
                     </div>
+
+                    <!-- Text Vertical Placement Slider -->
+                    <div class="flex flex-col gap-1 bg-m3-surfaceVariant/40 p-3 rounded-xl border border-m3-surfaceVariant mt-1">
+                        <div class="flex items-center justify-between px-1">
+                            <label for="textPositionY" class="text-xs font-bold text-m3-secondary uppercase tracking-wider">Text Vertical Placement</label>
+                            <span id="text-position-y-value" class="text-xs font-bold text-m3-primary">50%</span>
+                        </div>
+                        <input type="range" id="textPositionY" min="0" max="100" value="50" class="w-full h-2 bg-white rounded-lg appearance-none cursor-pointer accent-m3-primary border border-m3-primary/30">
+                        <div class="flex justify-between text-[10px] font-medium text-m3-outline px-1">
+                            <span>Top (0%)</span>
+                            <span>Center (50%)</span>
+                            <span>Bottom (100%)</span>
+                        </div>
+                    </div>
                 </div>
                 
                 <!-- Quotes Add-on -->
@@ -527,6 +541,7 @@
             bgZoom: 100,
             bgOffsetX: 50,
             bgOffsetY: 50,
+            textPositionY: 50,
             includeQuote: false,
             quoteText: "আপনারা হাসিনা কার্ড খেলবেন আর বাংলাদেশের সঙ্গে বন্ধুত্বপূর্ণ সম্পর্ক চাইবেন; মনে রাখতে হবে, দুটো বিপরীত।",
             quoteAttribution: "Salahuddin Ahmed, Home Minister",
@@ -1157,8 +1172,12 @@
                     dryRun = buildDryRunLayout(scaleRatio);
                 }
 
-                // 3. Vertically Center the Text Block inside the Safe Zone (between headerBottomY and dateTopY)
-                const startY = headerBottomY + Math.max(0, Math.round((safeZoneHeight - dryRun.totalTextHeight) / 2));
+                // 3. Position the Text Block inside the Safe Zone using Text Vertical Placement slider (0% = Top, 50% = Center, 100% = Bottom)
+                let availableEmptySpace = safeZoneHeight - dryRun.totalTextHeight;
+                if (availableEmptySpace < 0) availableEmptySpace = 0;
+                const textPositionYValue = state.textPositionY !== undefined ? Number(state.textPositionY) : 50;
+                const offsetTarget = Math.round(availableEmptySpace * (textPositionYValue / 100));
+                const startY = headerBottomY + offsetTarget;
 
                 const boxes = [];
                 let finalQuote = null;
@@ -1735,6 +1754,8 @@
                 this.bgOffsetXValue = document.getElementById('bg-offset-x-value');
                 this.bgOffsetYInput = document.getElementById('bgOffsetY');
                 this.bgOffsetYValue = document.getElementById('bg-offset-y-value');
+                this.textPositionYInput = document.getElementById('textPositionY');
+                this.textPositionYValue = document.getElementById('text-position-y-value');
                 
                 // Formatting & Tone Options
                 this.formatSelectorsContainer = document.getElementById('format-selectors');
@@ -1899,6 +1920,9 @@
                 }
                 if (this.bgOffsetYInput) {
                     this.state.bgOffsetY = Number(this.bgOffsetYInput.value);
+                }
+                if (this.textPositionYInput) {
+                    this.state.textPositionY = Number(this.textPositionYInput.value);
                 }
                 this.state.attribution = this.attributionInput.value;
                 this.state.readTime = this.readTimeInput.value;
@@ -2619,6 +2643,7 @@
                 bindFramingSlider(this.bgZoomInput, this.bgZoomValue, 'bgZoom', 100);
                 bindFramingSlider(this.bgOffsetXInput, this.bgOffsetXValue, 'bgOffsetX', 50);
                 bindFramingSlider(this.bgOffsetYInput, this.bgOffsetYValue, 'bgOffsetY', 50);
+                bindFramingSlider(this.textPositionYInput, this.textPositionYValue, 'textPositionY', 50);
 
                 // Author UI Bindings
                 this.showAuthorToggle.addEventListener('change', (e) => {
@@ -2707,12 +2732,15 @@
                     this.state.bgZoom = 100;
                     this.state.bgOffsetX = 50;
                     this.state.bgOffsetY = 50;
+                    this.state.textPositionY = 50;
                     if (this.bgZoomInput) this.bgZoomInput.value = '100';
                     if (this.bgZoomValue) this.bgZoomValue.innerText = '100%';
                     if (this.bgOffsetXInput) this.bgOffsetXInput.value = '50';
                     if (this.bgOffsetXValue) this.bgOffsetXValue.innerText = '50%';
                     if (this.bgOffsetYInput) this.bgOffsetYInput.value = '50';
                     if (this.bgOffsetYValue) this.bgOffsetYValue.innerText = '50%';
+                    if (this.textPositionYInput) this.textPositionYInput.value = '50';
+                    if (this.textPositionYValue) this.textPositionYValue.innerText = '50%';
                     this.imageUpload.value = '';
                     this.removeImageBtn.classList.add('hidden');
                     if (this.bgUploadStatus) this.bgUploadStatus.innerText = 'Click to upload photo or drag and drop';
