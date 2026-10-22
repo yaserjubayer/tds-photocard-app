@@ -13,7 +13,6 @@
 
     <title>Newsroom Photocard Studio</title>
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Google Fonts (Updated for The Dhaka Standard: Oswald, Playfair, Inter) -->
@@ -117,7 +116,6 @@
             </div>
         </header>
 
-        <!-- Main Content Area -->
         <main class="flex-1 overflow-y-auto h-[calc(100vh-100px)] p-4 pb-40 flex flex-col gap-6">
             
             <!-- Canvas Preview Section -->
@@ -137,7 +135,6 @@
                 </div>
             </section>
 
-            <!-- Input Controls Section -->
             <section class="flex flex-col gap-4 pb-36">
                 
                 <!-- Verification Alert Banner (Hidden by default) -->
@@ -168,7 +165,6 @@
                     </div>
                 </div>
 
-                <!-- 1. Prominent Background Image Upload (First Input) -->
                 <div class="flex flex-col gap-2 bg-m3-primaryContainer/35 p-4 rounded-2xl border-2 border-m3-primary/30 shadow-sm">
                     <div class="flex items-center justify-between px-1">
                         <div class="flex items-center gap-2">
@@ -192,7 +188,6 @@
                     </div>
                 </div>
 
-                <!-- Aspect Ratio Selector -->
                 <div class="flex flex-col gap-1.5">
                     <label class="text-sm font-semibold text-m3-secondary px-1">Platform Format</label>
                     <div class="flex gap-2 overflow-x-auto pb-1 hide-scrollbar" id="format-selectors">
@@ -229,27 +224,55 @@
                     </div>
                 </div>
 
-                <!-- Layout Theme Selector -->
-                <div class="flex flex-col gap-1.5">
-                    <label for="layout-theme-input" class="text-sm font-semibold text-m3-secondary px-1">Layout Theme (TDS Template)</label>
-                    <div class="relative">
-                        <select id="layout-theme-input" class="w-full appearance-none bg-white border border-m3-outline rounded-xl px-4 py-3.5 text-m3-onSurface focus:outline-none focus:border-m3-primary focus:ring-1 focus:ring-m3-primary transition-all font-bold">
-                            <option value="standard">Standard News</option>
-                            <option value="quote">Quote Focus</option>
-                        </select>
-                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-m3-outline">
-                            <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                <button type="button" id="advanced-settings-toggle" class="w-full flex items-center justify-between bg-m3-surfaceVariant/50 px-4 py-3 rounded-xl text-sm font-bold text-m3-onSurface hover:bg-m3-surfaceVariant transition-colors border border-m3-surfaceVariant">
+                    <span>⚙️ Advanced Settings (Date, Logo, Theme)</span>
+                    <svg class="w-4 h-4 transition-transform" id="advanced-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+
+                <div id="advanced-settings-drawer" class="hidden flex-col gap-4 mt-2">
+                    <!-- Layout Theme Selector -->
+                    <div class="flex flex-col gap-1.5">
+                        <label for="layout-theme-input" class="text-sm font-semibold text-m3-secondary px-1">Layout Theme (TDS Template)</label>
+                        <div class="relative">
+                            <select id="layout-theme-input" class="w-full appearance-none bg-white border border-m3-outline rounded-xl px-4 py-3.5 text-m3-onSurface focus:outline-none focus:border-m3-primary focus:ring-1 focus:ring-m3-primary transition-all font-bold">
+                                <option value="standard">Standard News</option>
+                                <option value="quote">Quote Focus</option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-m3-outline">
+                                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Date Stamp (Auto: Dhaka Time) with Optional Editorial Override -->
-                <div class="flex flex-col gap-1.5">
-                    <div class="flex items-center justify-between px-1">
-                        <label for="date-stamp-input" class="text-sm font-semibold text-m3-secondary">Date Stamp (Auto: Dhaka Time)</label>
-                        <button type="button" id="reset-date-btn" class="text-[11px] font-bold text-m3-primary hover:underline">Reset to Today</button>
+                    <!-- Date Stamp (Auto: Dhaka Time) with Optional Editorial Override -->
+                    <div class="flex flex-col gap-1.5">
+                        <div class="flex items-center justify-between px-1">
+                            <label for="date-stamp-input" class="text-sm font-semibold text-m3-secondary">Date Stamp (Auto: Dhaka Time)</label>
+                            <button type="button" id="reset-date-btn" class="text-[11px] font-bold text-m3-primary hover:underline">Reset to Today</button>
+                        </div>
+                        <input type="text" id="date-stamp-input" placeholder="e.g. 19 OCT 2026" class="w-full bg-white border border-m3-outline rounded-xl px-4 py-3 text-sm font-semibold uppercase tracking-wider text-m3-onSurface focus:outline-none focus:border-m3-primary focus:ring-1 focus:ring-m3-primary transition-all">
                     </div>
-                    <input type="text" id="date-stamp-input" placeholder="e.g. 19 OCT 2026" class="w-full bg-white border border-m3-outline rounded-xl px-4 py-3 text-sm font-semibold uppercase tracking-wider text-m3-onSurface focus:outline-none focus:border-m3-primary focus:ring-1 focus:ring-m3-primary transition-all">
+
+                    <!-- Hardcoded TDS Brand Identity & Smart Logo Alignment -->
+                    <div class="flex flex-col gap-1.5 bg-m3-surfaceVariant/30 p-4 rounded-xl border border-m3-surfaceVariant">
+                        <div class="flex items-center justify-between">
+                            <label for="logo-alignment-input" class="text-sm font-semibold text-m3-onSurface">Logo Alignment</label>
+                            <span class="text-[11px] font-bold uppercase tracking-wider text-red-700 bg-red-100 px-2.5 py-0.5 rounded-full">The Dhaka Standard</span>
+                        </div>
+                        <p class="text-xs text-m3-secondary">Smart placement automatically detects headline, quote, and image focal areas to place the TDS logo in the quadrant with the most open space.</p>
+                        <div class="relative mt-1">
+                            <select id="logo-alignment-input" class="w-full appearance-none bg-white border border-m3-outline rounded-xl px-4 py-3.5 text-m3-onSurface focus:outline-none focus:border-m3-primary focus:ring-1 focus:ring-m3-primary transition-all font-semibold">
+                                <option value="auto" selected>Auto (Smart Placement)</option>
+                                <option value="top-left">Top-Left</option>
+                                <option value="top-right">Top-Right</option>
+                                <option value="bottom-left">Bottom-Left</option>
+                                <option value="bottom-right">Bottom-Right</option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-m3-outline">
+                                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Local NLP Article Text to Headline Generator (No API Key Required) -->
@@ -325,39 +348,8 @@
                         </div>
                     </div>
                 </div>
-                
-                <!-- Hardcoded TDS Brand Identity & Smart Logo Alignment -->
-                <div class="flex flex-col gap-1.5 bg-m3-surfaceVariant/30 p-4 rounded-xl border border-m3-surfaceVariant">
-                    <div class="flex items-center justify-between">
-                        <label for="logo-alignment-input" class="text-sm font-semibold text-m3-onSurface">Logo Alignment</label>
-                        <span class="text-[11px] font-bold uppercase tracking-wider text-red-700 bg-red-100 px-2.5 py-0.5 rounded-full">The Dhaka Standard</span>
-                    </div>
-                    <p class="text-xs text-m3-secondary">Smart placement automatically detects headline, quote, and image focal areas to place the TDS logo in the quadrant with the most open space.</p>
-                    <div class="relative mt-1">
-                        <select id="logo-alignment-input" class="w-full appearance-none bg-white border border-m3-outline rounded-xl px-4 py-3.5 text-m3-onSurface focus:outline-none focus:border-m3-primary focus:ring-1 focus:ring-m3-primary transition-all font-semibold">
-                            <option value="auto" selected>Auto (Smart Placement)</option>
-                            <option value="top-left">Top-Left</option>
-                            <option value="top-right">Top-Right</option>
-                            <option value="bottom-left">Bottom-Left</option>
-                            <option value="bottom-right">Bottom-Right</option>
-                        </select>
-                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-m3-outline">
-                            <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
-                        </div>
-                    </div>
-                </div>
 
-                <!-- Tone Selector & Dynamic Fields -->
-                <div class="flex flex-col gap-1.5">
-                    <label class="text-sm font-semibold text-m3-secondary px-1">Editorial Tone</label>
-                    <div class="flex gap-2 overflow-x-auto pb-1 hide-scrollbar" id="tone-selectors">
-                        <button type="button" data-tone="standard" class="tone-btn whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-colors bg-m3-primary text-m3-onPrimary shadow-elevation-1">Standard</button>
-                        <button type="button" data-tone="breaking" class="tone-btn whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-colors bg-white border border-m3-outline text-m3-onSurface hover:bg-m3-surfaceVariant">Breaking News</button>
-                        <button type="button" data-tone="quote" class="tone-btn whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-colors bg-white border border-m3-outline text-m3-onSurface hover:bg-m3-surfaceVariant">Quote Card</button>
-                        <button type="button" data-tone="analytical" class="tone-btn whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-colors bg-white border border-m3-outline text-m3-onSurface hover:bg-m3-surfaceVariant">Analytical</button>
-                    </div>
-                </div>
-
+                <!-- Dynamic Fields (#quote-fields & #analytical-fields kept intact) -->
                 <div id="quote-fields" class="hidden flex-col gap-1.5 transition-all">
                     <label for="attribution-input" class="text-sm font-semibold text-m3-secondary px-1">Attribution / Speaker</label>
                     <input type="text" id="attribution-input" placeholder="e.g. Jane Doe, CEO" class="w-full bg-white border border-m3-outline rounded-xl px-4 py-3 text-m3-onSurface focus:outline-none focus:border-m3-primary focus:ring-1 focus:ring-m3-primary transition-all">
@@ -1692,6 +1684,10 @@
                 this.attributionInput = document.getElementById('attribution-input');
                 this.readTimeInput = document.getElementById('read-time-input');
 
+                this.advancedSettingsToggle = document.getElementById('advanced-settings-toggle');
+                this.advancedSettingsDrawer = document.getElementById('advanced-settings-drawer');
+                this.advancedChevron = document.getElementById('advanced-chevron');
+
                 this.imageUpload = document.getElementById('image-upload');
                 this.dropzone = document.getElementById('dropzone');
                 this.bgUploadStatus = document.getElementById('bg-upload-status');
@@ -1705,7 +1701,6 @@
                 this.canvasWrapper = document.getElementById('canvas-wrapper');
                 this.presetBtns = document.querySelectorAll('.preset-btn');
                 this.activePresetBadge = document.getElementById('active-preset-badge');
-                this.toneBtns = document.querySelectorAll('.tone-btn');
                 this.quoteFields = document.getElementById('quote-fields');
                 this.analyticalFields = document.getElementById('analytical-fields');
                 
@@ -1893,14 +1888,7 @@
                 });
             }
 
-            renderToneButtons() {
-                this.toneBtns.forEach(btn => {
-                    const isSelected = this.state.tone === btn.dataset.tone;
-                    btn.className = isSelected 
-                        ? 'tone-btn whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-colors bg-m3-primary text-m3-onPrimary shadow-elevation-1' 
-                        : 'tone-btn whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-colors bg-white border border-m3-outline text-m3-onSurface hover:bg-m3-surfaceVariant';
-                });
-                
+            updateDynamicFieldsVisibility() {
                 this.quoteFields.classList.toggle('hidden', this.state.tone !== 'quote');
                 this.quoteFields.classList.toggle('flex', this.state.tone === 'quote');
                 this.analyticalFields.classList.toggle('hidden', this.state.tone !== 'analytical');
@@ -1995,7 +1983,7 @@
                 }
 
                 this.renderPresetButtons();
-                this.renderToneButtons();
+                this.updateDynamicFieldsVisibility();
                 this.updateAndRender();
             }
 
@@ -2334,6 +2322,16 @@
                 this.categoryInput.value = "GENERAL";
                 this.state.category = "GENERAL";
 
+                if (this.advancedSettingsToggle && this.advancedSettingsDrawer) {
+                    this.advancedSettingsToggle.addEventListener('click', () => {
+                        const isHidden = this.advancedSettingsDrawer.classList.toggle('hidden');
+                        this.advancedSettingsDrawer.classList.toggle('flex', !isHidden);
+                        if (this.advancedChevron) {
+                            this.advancedChevron.classList.toggle('rotate-180', !isHidden);
+                        }
+                    });
+                }
+
                 if (this.dateStampInput) {
                     this.state.dateStamp = getDhakaDateFormatted();
                     this.dateStampInput.value = this.state.dateStamp;
@@ -2368,7 +2366,7 @@
                 
                 this.renderFormatButtons();
                 this.renderPresetButtons();
-                this.renderToneButtons();
+                this.updateDynamicFieldsVisibility();
 
                 if (this.presetBtns) {
                     this.presetBtns.forEach(btn => {
@@ -2515,14 +2513,6 @@
                         this.updateAndRender();
                     });
                 }
-
-                this.toneBtns.forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        this.state.tone = e.target.dataset.tone;
-                        this.renderToneButtons();
-                        this.updateAndRender();
-                    });
-                });
 
                 this.verifyBtn.addEventListener('click', () => {
                     this.verifyCredibilityLocally();
