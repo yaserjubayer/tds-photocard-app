@@ -273,6 +273,38 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Image Adjustments (Brightness, Contrast, Grain) -->
+                    <div class="flex flex-col gap-3 bg-m3-surfaceVariant/30 p-4 rounded-xl border border-m3-surfaceVariant">
+                        <div class="flex items-center justify-between">
+                            <label class="text-sm font-semibold text-m3-onSurface">Image Adjustments</label>
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-m3-primary bg-m3-primaryContainer px-2 py-0.5 rounded-full">Editorial Defaults</span>
+                        </div>
+
+                        <div class="flex flex-col gap-1">
+                            <div class="flex items-center justify-between px-1">
+                                <label for="bgBrightness" class="text-xs font-semibold text-m3-secondary">Brightness</label>
+                                <span id="bg-brightness-value" class="text-xs font-bold text-m3-primary">95%</span>
+                            </div>
+                            <input type="range" id="bgBrightness" min="50" max="150" value="95" class="w-full h-2 bg-white rounded-lg appearance-none cursor-pointer accent-m3-primary border border-m3-primary/30">
+                        </div>
+
+                        <div class="flex flex-col gap-1">
+                            <div class="flex items-center justify-between px-1">
+                                <label for="bgContrast" class="text-xs font-semibold text-m3-secondary">Contrast</label>
+                                <span id="bg-contrast-value" class="text-xs font-bold text-m3-primary">105%</span>
+                            </div>
+                            <input type="range" id="bgContrast" min="50" max="150" value="105" class="w-full h-2 bg-white rounded-lg appearance-none cursor-pointer accent-m3-primary border border-m3-primary/30">
+                        </div>
+
+                        <div class="flex flex-col gap-1">
+                            <div class="flex items-center justify-between px-1">
+                                <label for="bgGrain" class="text-xs font-semibold text-m3-secondary">Grain (Texture)</label>
+                                <span id="bg-grain-value" class="text-xs font-bold text-m3-primary">8%</span>
+                            </div>
+                            <input type="range" id="bgGrain" min="0" max="50" value="8" class="w-full h-2 bg-white rounded-lg appearance-none cursor-pointer accent-m3-primary border border-m3-primary/30">
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Local NLP Article Text to Headline Generator (No API Key Required) -->
@@ -598,6 +630,9 @@
             backgroundImage: null,
             focusX: 0.5,
             focusY: 0.25,
+            brightness: 95,
+            contrast: 105,
+            grain: 8,
             textPositionY: 50,
             includeQuote: false,
             quoteText: "আপনারা হাসিনা কার্ড খেলবেন আর বাংলাদেশের সঙ্গে বন্ধুত্বপূর্ণ সম্পর্ক চাইবেন; মনে রাখতে হবে, দুটো বিপরীত।",
@@ -633,6 +668,24 @@
             constructor(canvasId) {
                 this.canvas = document.getElementById(canvasId);
                 this.ctx = this.canvas.getContext('2d');
+
+                // Pre-generate 128x128 offscreen monochrome grain canvas for zero-lag texture overlay
+                this.grainCanvas = document.createElement('canvas');
+                this.grainCanvas.width = 128;
+                this.grainCanvas.height = 128;
+                const grainCtx = this.grainCanvas.getContext('2d');
+                if (grainCtx) {
+                    const imgData = grainCtx.createImageData(128, 128);
+                    const data = imgData.data;
+                    for (let i = 0; i < data.length; i += 4) {
+                        const val = Math.floor(Math.random() * 256);
+                        data[i] = val;
+                        data[i + 1] = val;
+                        data[i + 2] = val;
+                        data[i + 3] = 255;
+                    }
+                    grainCtx.putImageData(imgData, 0, 0);
+                }
             }
 
             drawBackground(state, format) {
@@ -672,15 +725,33 @@
                     sx = Math.max(0, Math.min(maxPanX, sx));
                     sy = Math.max(0, Math.min(maxPanY, sy));
 
+                    const brightness = state.brightness !== undefined ? Number(state.brightness) : 95;
+                    const contrast = state.contrast !== undefined ? Number(state.contrast) : 105;
+
                     this.ctx.save();
+                    this.ctx.filter = 'brightness(' + brightness + '%) contrast(' + contrast + '%)';
                     this.ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, width, height);
                     this.ctx.restore();
+                    this.ctx.filter = 'none';
                 } else {
                     const gradient = this.ctx.createLinearGradient(0, 0, width, height);
                     gradient.addColorStop(0, "#1a1a1a");
                     gradient.addColorStop(1, "#0a0a0a");
                     this.ctx.fillStyle = gradient;
                     this.ctx.fillRect(0, 0, width, height);
+                }
+
+                // Apply lag-free hardware-accelerated grain texture before the text gradient scrim
+                if (state.grain > 0 && this.grainCanvas) {
+                    this.ctx.globalAlpha = state.grain / 100;
+                    this.ctx.globalCompositeOperation = 'overlay';
+                    const grainPattern = this.ctx.createPattern(this.grainCanvas, 'repeat');
+                    if (grainPattern) {
+                        this.ctx.fillStyle = grainPattern;
+                        this.ctx.fillRect(0, 0, width, height);
+                    }
+                    this.ctx.globalAlpha = 1.0;
+                    this.ctx.globalCompositeOperation = 'source-over';
                 }
 
                 const scrim = this.ctx.createLinearGradient(0, 0, 0, height);
@@ -1688,6 +1759,13 @@
                 this.advancedSettingsDrawer = document.getElementById('advanced-settings-drawer');
                 this.advancedChevron = document.getElementById('advanced-chevron');
 
+                this.bgBrightnessInput = document.getElementById('bgBrightness');
+                this.bgBrightnessValue = document.getElementById('bg-brightness-value');
+                this.bgContrastInput = document.getElementById('bgContrast');
+                this.bgContrastValue = document.getElementById('bg-contrast-value');
+                this.bgGrainInput = document.getElementById('bgGrain');
+                this.bgGrainValue = document.getElementById('bg-grain-value');
+
                 this.imageUpload = document.getElementById('image-upload');
                 this.dropzone = document.getElementById('dropzone');
                 this.bgUploadStatus = document.getElementById('bg-upload-status');
@@ -1843,6 +1921,15 @@
                 }
                 if (this.textPositionYInput) {
                     this.state.textPositionY = Number(this.textPositionYInput.value);
+                }
+                if (this.bgBrightnessInput) {
+                    this.state.brightness = Number(this.bgBrightnessInput.value);
+                }
+                if (this.bgContrastInput) {
+                    this.state.contrast = Number(this.bgContrastInput.value);
+                }
+                if (this.bgGrainInput) {
+                    this.state.grain = Number(this.bgGrainInput.value);
                 }
                 this.state.attribution = this.attributionInput.value;
                 this.state.readTime = this.readTimeInput.value;
@@ -2468,6 +2555,9 @@
                 const bindFramingSlider = (inputEl, labelEl, stateKey, defaultVal) => {
                     if (!inputEl) return;
                     inputEl.value = String(this.state[stateKey] ?? defaultVal);
+                    if (labelEl) {
+                        labelEl.innerText = `${this.state[stateKey] ?? defaultVal}%`;
+                    }
                     const handleSlide = (e) => {
                         this.state[stateKey] = Number(e.target.value);
                         if (labelEl) {
@@ -2477,9 +2567,13 @@
                     };
                     inputEl.oninput = handleSlide;
                     inputEl.addEventListener('input', handleSlide);
+                    inputEl.addEventListener('change', handleSlide);
                 };
 
                 bindFramingSlider(this.textPositionYInput, this.textPositionYValue, 'textPositionY', 50);
+                bindFramingSlider(this.bgBrightnessInput, this.bgBrightnessValue, 'brightness', 95);
+                bindFramingSlider(this.bgContrastInput, this.bgContrastValue, 'contrast', 105);
+                bindFramingSlider(this.bgGrainInput, this.bgGrainValue, 'grain', 8);
 
                 this.showAuthorToggle.addEventListener('change', (e) => {
                     this.state.showAuthor = e.target.checked;
@@ -2555,6 +2649,15 @@
                     this.state.backgroundImage = null;
                     this.state.focusX = 0.5;
                     this.state.focusY = 0.25;
+                    this.state.brightness = 95;
+                    this.state.contrast = 105;
+                    this.state.grain = 8;
+                    if (this.bgBrightnessInput) this.bgBrightnessInput.value = '95';
+                    if (this.bgBrightnessValue) this.bgBrightnessValue.innerText = '95%';
+                    if (this.bgContrastInput) this.bgContrastInput.value = '105';
+                    if (this.bgContrastValue) this.bgContrastValue.innerText = '105%';
+                    if (this.bgGrainInput) this.bgGrainInput.value = '8';
+                    if (this.bgGrainValue) this.bgGrainValue.innerText = '8%';
                     this.state.textPositionY = 50;
                     if (this.textPositionYInput) this.textPositionYInput.value = '50';
                     if (this.textPositionYValue) this.textPositionYValue.innerText = '50%';
