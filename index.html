@@ -276,9 +276,9 @@
 
                     <!-- Image Adjustments (Brightness, Contrast, Grain) -->
                     <div class="flex flex-col gap-3 bg-m3-surfaceVariant/30 p-4 rounded-xl border border-m3-surfaceVariant">
-                        <div class="flex items-center justify-between">
-                            <label class="text-sm font-semibold text-m3-onSurface">Image Adjustments</label>
-                            <span class="text-[10px] font-bold uppercase tracking-wider text-m3-primary bg-m3-primaryContainer px-2 py-0.5 rounded-full">Editorial Defaults</span>
+                        <div class="flex items-center justify-between px-1 mb-2">
+                            <label class="text-sm font-semibold text-m3-secondary">Image Adjustments</label>
+                            <button type="button" id="reset-image-filters-btn" class="text-[11px] font-bold text-m3-primary hover:underline">Reset to Default</button>
                         </div>
 
                         <div class="flex flex-col gap-1">
@@ -1765,6 +1765,7 @@
                 this.bgContrastValue = document.getElementById('bg-contrast-value');
                 this.bgGrainInput = document.getElementById('bgGrain');
                 this.bgGrainValue = document.getElementById('bg-grain-value');
+                this.resetImageFiltersBtn = document.getElementById('reset-image-filters-btn');
 
                 this.imageUpload = document.getElementById('image-upload');
                 this.dropzone = document.getElementById('dropzone');
@@ -2574,6 +2575,24 @@
                 bindFramingSlider(this.bgBrightnessInput, this.bgBrightnessValue, 'brightness', 95);
                 bindFramingSlider(this.bgContrastInput, this.bgContrastValue, 'contrast', 105);
                 bindFramingSlider(this.bgGrainInput, this.bgGrainValue, 'grain', 8);
+
+                if (this.resetImageFiltersBtn) {
+                    this.resetImageFiltersBtn.addEventListener('click', () => {
+                        this.state.brightness = 95;
+                        this.state.contrast = 105;
+                        this.state.grain = 8;
+
+                        document.getElementById('bgBrightness').value = 95;
+                        document.getElementById('bgContrast').value = 105;
+                        document.getElementById('bgGrain').value = 8;
+
+                        if (this.bgBrightnessValue) this.bgBrightnessValue.innerText = '95%';
+                        if (this.bgContrastValue) this.bgContrastValue.innerText = '105%';
+                        if (this.bgGrainValue) this.bgGrainValue.innerText = '8%';
+
+                        this.updateAndRender();
+                    });
+                }
 
                 this.showAuthorToggle.addEventListener('change', (e) => {
                     this.state.showAuthor = e.target.checked;
