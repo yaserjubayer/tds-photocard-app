@@ -1,17 +1,25 @@
 {
   "name": "The Dhaka Standard Photocard Studio",
   "short_name": "TDS Studio",
+  "id": "io.github.yaserjubayer.photocard",
   "description": "Internal newsroom tool for generating social media photocards.",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#111111",
   "theme_color": "#a31f24",
+  "lang": "en",
+  "categories": [
+    "news",
+    "photo"
+  ],
   "icons": [
     {
       "src": "TDS Logo no background.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }
